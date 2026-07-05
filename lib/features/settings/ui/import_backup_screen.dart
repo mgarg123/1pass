@@ -1,44 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/auth_provider.dart';
-import '../providers/biometric_provider.dart';
+import '../providers/backup_provider.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+class ImportBackupScreen extends ConsumerStatefulWidget {
+  final String backupJson;
+
+  const ImportBackupScreen({super.key, required this.backupJson});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<ImportBackupScreen> createState() => _ImportBackupScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
+class _ImportBackupScreenState extends ConsumerState<ImportBackupScreen> {
   final _passwordController = TextEditingController();
   bool _obscureText = true;
-  bool _didAutoPromptBiometrics = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_didAutoPromptBiometrics) {
-      _didAutoPromptBiometrics = true;
-      final biometricState = ref.read(biometricProvider);
-      if (biometricState.isEnabled && !ref.read(biometricProvider.notifier).isMasterPasswordRequired()) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          ref.read(authProvider.notifier).unlockWithBiometrics();
-        });
-      }
-    }
-  }
+  bool _isImporting = false;
+  String? _error;
 
   Future<void> _submit() async {
     if (_passwordController.text.isEmpty) return;
-    await ref.read(authProvider.notifier).unlockVault(_passwordController.text);
+
+    setState(() {
+      _isImporting = true;
+      _error = null;
+    });
+
+    try {
+      await ref.read(backupProvider).importVault(widget.backupJson, _passwordController.text);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup imported successfully!')),
+        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isImporting = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
-
     return Scaffold(
+      appBar: AppBar(title: const Text('Import Backup')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -46,11 +52,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.lock, size: 80, color: Colors.blueAccent),
-              const SizedBox(height: 32),
+              const Icon(Icons.file_download, size: 64, color: Colors.blueAccent),
+              const SizedBox(height: 24),
               const Text(
-                'Unlock Vault',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                'Enter Master Password',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Please enter the master password that was used when this backup was created.',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
@@ -59,7 +70,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 obscureText: _obscureText,
                 onSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
-                  labelText: 'Master Password',
+                  labelText: 'Backup Master Password',
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
                     icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
@@ -68,35 +79,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              if (authState.errorMessage != null)
+              if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: Text(
-                    authState.errorMessage!,
+                    _error!,
                     style: const TextStyle(color: Colors.red),
                     textAlign: TextAlign.center,
                   ),
                 ),
               ElevatedButton(
-                onPressed: authState.isAuthenticating ? null : _submit,
+                onPressed: _isImporting ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   textStyle: const TextStyle(fontSize: 18),
                 ),
-                child: authState.isAuthenticating
+                child: _isImporting
                     ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Unlock'),
+                    : const Text('Import Vault'),
               ),
-              if (ref.watch(biometricProvider).isEnabled) ...[
-                const SizedBox(height: 16),
-                TextButton.icon(
-                  onPressed: authState.isAuthenticating
-                      ? null
-                      : () => ref.read(authProvider.notifier).unlockWithBiometrics(),
-                  icon: const Icon(Icons.fingerprint),
-                  label: const Text('Unlock with Biometrics'),
-                ),
-              ],
             ],
           ),
         ),

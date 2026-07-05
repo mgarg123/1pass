@@ -8,6 +8,8 @@ import '../../../core/constants/crypto_constants.dart';
 import '../../../core/storage/vault_repository.dart';
 import '../../../core/storage/syncing_vault_repository.dart';
 import '../../../core/sync/sync_provider.dart';
+import '../../../core/storage/hive_setup.dart';
+import 'biometric_provider.dart';
 
 final cryptoServiceProvider = Provider((ref) => CryptoService());
 
@@ -187,6 +189,7 @@ class AuthNotifier extends Notifier<AuthState> {
       
       state = state.copyWith(encryptionKey: key, isAuthenticating: false);
       
+      ref.read(biometricProvider.notifier).storeEncryptionKey(key);
       ref.read(syncProvider.notifier).triggerSync();
     } catch (e) {
       state = state.copyWith(isAuthenticating: false, errorMessage: e.toString());
@@ -195,8 +198,131 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> logout() async {
     state.encryptionKey?.clear();
+    await ref.read(biometricProvider.notifier).clearStoredKey();
     await Supabase.instance.client.auth.signOut();
     state = state.copyWith(clearKey: true);
+  }
+
+  Future<void> unlockWithBiometrics() async {
+    state = state.copyWith(isAuthenticating: true, clearError: true);
+    try {
+      final key = await ref.read(biometricProvider.notifier).unlockWithBiometrics();
+      if (key == null) {
+        state = state.copyWith(
+          isAuthenticating: false, 
+          errorMessage: 'Biometric unlock failed or expired. Please use master password.'
+        );
+        return;
+      }
+      
+      state = state.copyWith(encryptionKey: key, isAuthenticating: false);
+      ref.read(syncProvider.notifier).triggerSync();
+    } catch (e) {
+      state = state.copyWith(isAuthenticating: false, errorMessage: e.toString());
+    }
+  }
+
+  Future<void> changeMasterPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    state = state.copyWith(isAuthenticating: true, clearError: true);
+    try {
+      LocalUserMeta? meta = await _vaultRepository.getMeta();
+      if (meta == null) throw Exception('No local vault found.');
+
+      // 1. Verify current password
+      final oldKey = await _cryptoService.deriveKey(password: currentPassword, salt: meta.salt);
+      if (meta.verificationBlob != null && meta.verificationBlob!.isNotEmpty) {
+        final blob = EncryptedBlob.fromStorageString(meta.verificationBlob!);
+        try {
+          final dec = await _cryptoService.decrypt(blob, oldKey);
+          if (utf8.decode(dec) != 'vault-verify') throw Exception();
+        } catch (_) {
+          oldKey.clear();
+          throw Exception('Incorrect current master password.');
+        }
+      }
+
+      // 2. Generate new salt, derive new key
+      final newSalt = await _cryptoService.generateSalt();
+      final newKey = await _cryptoService.deriveKey(password: newPassword, salt: newSalt);
+      final params = Argon2Params(
+        memoryKB: CryptoConstants.argon2MemoryKB,
+        iterations: CryptoConstants.argon2Iterations,
+        parallelism: CryptoConstants.argon2Parallelism,
+        hashLengthBytes: CryptoConstants.keyLengthBytes,
+      );
+
+      // 3. Generate new verification blob
+      final verificationPayload = Uint8List.fromList(utf8.encode('vault-verify'));
+      final newVerificationBlobObj = await _cryptoService.encrypt(verificationPayload, newKey);
+      final newVerificationBlobStr = newVerificationBlobObj.toStorageString();
+
+      // 4. Decrypt and re-encrypt entries
+      final entries = await _vaultRepository.getAllEntries(oldKey);
+      final rpcEntries = <Map<String, dynamic>>[];
+      
+      for (final entry in entries) {
+        final payloadString = entry.sensitivePayload;
+        final payloadBytes = Uint8List.fromList(utf8.encode(payloadString));
+        final newBlob = await _cryptoService.encrypt(payloadBytes, newKey);
+        
+        DateTime newUpdatedAt = DateTime.now().toUtc();
+        if (!newUpdatedAt.isAfter(entry.updatedAt)) {
+            newUpdatedAt = entry.updatedAt.add(const Duration(milliseconds: 1));
+        }
+
+        rpcEntries.add({
+          'id': entry.id,
+          'encryptedData': newBlob.toStorageString(),
+          'updatedAt': newUpdatedAt.toIso8601String(),
+        });
+      }
+
+      // 5. Upload via RPC
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) throw Exception('Not signed in to Supabase.');
+      
+      await Supabase.instance.client.rpc('update_master_password', params: {
+        'p_salt': newSalt.toBase64(),
+        'p_argon2_params': params.toJson(),
+        'p_verification_blob': newVerificationBlobStr,
+        'p_entries': rpcEntries,
+      });
+
+      // 6. Local commit
+      await _vaultRepository.saveMeta(newSalt, params, newVerificationBlobStr);
+      for (int i = 0; i < entries.length; i++) {
+        final entry = entries[i];
+        final rpcEntry = rpcEntries[i];
+        
+        final updatedEntry = entry.copyWith(updatedAt: DateTime.parse(rpcEntry['updatedAt']));
+        
+        final data = {
+          'id': updatedEntry.id,
+          'title': updatedEntry.title,
+          'tags': updatedEntry.tags,
+          'createdAt': updatedEntry.createdAt.toIso8601String(),
+          'updatedAt': updatedEntry.updatedAt.toIso8601String(),
+          'isDeleted': updatedEntry.isDeleted,
+          'encryptedData': rpcEntry['encryptedData'],
+        };
+        await HiveSetup.vaultBox.put(updatedEntry.id, data);
+      }
+      
+      // Clear old key
+      state.encryptionKey?.clear();
+      oldKey.clear();
+      
+      // Set new state
+      state = state.copyWith(encryptionKey: newKey, isAuthenticating: false);
+      ref.read(biometricProvider.notifier).storeEncryptionKey(newKey);
+      
+    } catch (e) {
+      state = state.copyWith(isAuthenticating: false, errorMessage: e.toString());
+      rethrow;
+    }
   }
 }
 

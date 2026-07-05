@@ -131,7 +131,7 @@ class SyncingVaultRepository implements VaultRepository {
         // Remove from sync queue if it was there
         await HiveSetup.pendingSyncBox.delete(id);
       } catch (e) {
-        print('Failed to decrypt remote entry $id: $e');
+        // Decrypt error ignored silently
         // Handle decrypt failure? Maybe skip it.
       }
     }
