@@ -37,7 +37,13 @@ jobs:
 
       - name: Build Android APK
         if: matrix.target == 'apk'
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEYSTORE_PATH: upload-keystore.jks
         run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
           flutter build apk --release
           cp build/app/outputs/flutter-apk/app-release.apk OnePass-Android.apk
 

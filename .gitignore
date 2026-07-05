@@ -49,3 +49,4 @@ app.*.map.json
 .env.*
 supabase/.env
 *.hive
+android/app/upload-keystore.jks
