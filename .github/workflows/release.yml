@@ -46,7 +46,7 @@ jobs:
         run: |
           flutter build macos --release
           cd build/macos/Build/Products/Release
-          zip -r ../../../../../OnePass-macOS.zip one_pass.app
+          zip -r ../../../../../OnePass-macOS.zip 1Pass.app
 
       - name: Build Windows App
         if: matrix.target == 'windows'
