@@ -5,8 +5,8 @@ import 'login_screen.dart';
 import 'signup_screen.dart';
 import 'supabase_auth_screen.dart';
 import '../../vault/ui/vault_list_screen.dart';
-import '../../core/updater/update_service.dart';
-import '../../core/updater/update_dialog.dart';
+import '../../../core/updater/update_service.dart';
+import '../../../core/updater/update_dialog.dart';
 
 import '../../settings/providers/auto_lock_provider.dart';
 
