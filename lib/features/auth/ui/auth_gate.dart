@@ -5,14 +5,35 @@ import 'login_screen.dart';
 import 'signup_screen.dart';
 import 'supabase_auth_screen.dart';
 import '../../vault/ui/vault_list_screen.dart';
+import '../../core/updater/update_service.dart';
+import '../../core/updater/update_dialog.dart';
 
 import '../../settings/providers/auto_lock_provider.dart';
 
-class AuthGate extends ConsumerWidget {
+class AuthGate extends ConsumerStatefulWidget {
   const AuthGate({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends ConsumerState<AuthGate> {
+  @override
+  void initState() {
+    super.initState();
+    _checkForUpdates();
+  }
+
+  Future<void> _checkForUpdates() async {
+    final updateService = UpdateService();
+    final release = await updateService.checkForUpdates();
+    if (release != null && mounted) {
+      UpdateDialog.show(context, release);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
 
     if (authState.isAuthenticated) {
