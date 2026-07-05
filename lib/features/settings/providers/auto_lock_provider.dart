@@ -48,7 +48,7 @@ class AutoLockNotifier extends Notifier<int> with WidgetsBindingObserver {
   }
 
   void _lockApp() {
-    ref.read(authProvider.notifier).logout();
+    ref.read(authProvider.notifier).lockVault();
   }
 
   @override
