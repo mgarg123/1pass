@@ -131,7 +131,7 @@ class AuthNotifier extends Notifier<AuthState> {
       
       state = state.copyWith(encryptionKey: key, isAuthenticating: false);
     } catch (e) {
-      state = state.copyWith(isAuthenticating: false, errorMessage: e.toString());
+      state = state.copyWith(isAuthenticating: false, errorMessage: e.toString().replaceAll('Exception: ', ''));
     }
   }
 
@@ -192,7 +192,7 @@ class AuthNotifier extends Notifier<AuthState> {
       ref.read(biometricProvider.notifier).storeEncryptionKey(key);
       ref.read(syncProvider.notifier).triggerSync();
     } catch (e) {
-      state = state.copyWith(isAuthenticating: false, errorMessage: e.toString());
+      state = state.copyWith(isAuthenticating: false, errorMessage: e.toString().replaceAll('Exception: ', ''));
     }
   }
 
@@ -218,7 +218,7 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(encryptionKey: key, isAuthenticating: false);
       ref.read(syncProvider.notifier).triggerSync();
     } catch (e) {
-      state = state.copyWith(isAuthenticating: false, errorMessage: e.toString());
+      state = state.copyWith(isAuthenticating: false, errorMessage: e.toString().replaceAll('Exception: ', ''));
     }
   }
 
@@ -320,7 +320,7 @@ class AuthNotifier extends Notifier<AuthState> {
       ref.read(biometricProvider.notifier).storeEncryptionKey(newKey);
       
     } catch (e) {
-      state = state.copyWith(isAuthenticating: false, errorMessage: e.toString());
+      state = state.copyWith(isAuthenticating: false, errorMessage: e.toString().replaceAll('Exception: ', ''));
       rethrow;
     }
   }

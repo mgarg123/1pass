@@ -35,7 +35,7 @@ class _ImportBackupScreenState extends ConsumerState<ImportBackupScreen> {
       }
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = e.toString().replaceAll('Exception: ', '');
         _isImporting = false;
       });
     }

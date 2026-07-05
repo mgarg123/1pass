@@ -155,6 +155,27 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, st) => Center(child: Text('Error: $err')),
         data: (entries) {
+          if (entries.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.lock_outline, size: 64, color: Colors.blueAccent.withValues(alpha: 0.5)),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Your vault is empty',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Tap the + button below to add your first password.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
+          }
+
           final filtered = entries.where((e) {
             final matchesSearch = e.title.toLowerCase().contains(_searchQuery) ||
                 e.username.toLowerCase().contains(_searchQuery);
@@ -163,7 +184,24 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
           }).toList();
 
           if (filtered.isEmpty) {
-            return const Center(child: Text('No entries found.'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search_off, size: 64, color: Colors.grey.withValues(alpha: 0.5)),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No results found',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Try adjusting your search or filters.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
           }
 
           return ListView.builder(
