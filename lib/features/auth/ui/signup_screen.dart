@@ -46,7 +46,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       return;
     }
 
-    await ref.read(authProvider.notifier).signup(_passwordController.text);
+    await ref.read(authProvider.notifier).setupVault(_passwordController.text);
   }
 
   @override

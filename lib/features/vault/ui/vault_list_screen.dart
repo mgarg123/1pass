@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/vault_provider.dart';
+import '../../../core/sync/sync_provider.dart';
 import 'add_edit_entry_screen.dart';
 import '../../settings/ui/settings_screen.dart';
 
@@ -40,11 +41,43 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
   @override
   Widget build(BuildContext context) {
     final asyncEntries = ref.watch(vaultProvider);
+    final syncState = ref.watch(syncProvider);
+
+    Widget buildSyncIcon() {
+      switch (syncState) {
+        case SyncState.synced:
+          return const Icon(Icons.cloud_done, color: Colors.green, size: 20);
+        case SyncState.syncing:
+          return const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          );
+        case SyncState.offline:
+          return const Icon(Icons.cloud_off, color: Colors.grey, size: 20);
+        case SyncState.failed:
+          return const Icon(Icons.cloud_off, color: Colors.red, size: 20);
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Vault'),
+        title: Row(
+          children: [
+            const Text('My Vault'),
+            const SizedBox(width: 12),
+            buildSyncIcon(),
+          ],
+        ),
         actions: [
+          if (syncState == SyncState.failed)
+            IconButton(
+              icon: const Icon(Icons.sync),
+              tooltip: 'Retry Sync',
+              onPressed: () {
+                ref.read(syncProvider.notifier).triggerSync();
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
@@ -56,7 +89,9 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.lock),
+            tooltip: 'Lock Vault',
             onPressed: () {
+              // Note: This logs out of both vault and supabase in the current AuthProvider
               ref.read(authProvider.notifier).logout();
             },
           )

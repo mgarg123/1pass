@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'signup_screen.dart';
+import 'supabase_auth_screen.dart';
 import '../../vault/ui/vault_list_screen.dart';
 
 import '../../settings/providers/auto_lock_provider.dart';
@@ -20,6 +21,12 @@ class AuthGate extends ConsumerWidget {
         onPointerDown: (_) => ref.read(autoLockProvider.notifier).userActivityDetected(),
         child: const VaultListScreen(),
       );
+    }
+
+    final isSupabaseAuth = ref.read(authProvider.notifier).isSupabaseAuthenticated;
+
+    if (!isSupabaseAuth) {
+      return const SupabaseAuthScreen();
     }
 
     final hasAccountAsync = ref.watch(hasAccountProvider);
