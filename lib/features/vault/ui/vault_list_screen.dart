@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/vault_provider.dart';
 import '../../../core/sync/sync_provider.dart';
@@ -42,21 +43,22 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
   Widget build(BuildContext context) {
     final asyncEntries = ref.watch(vaultProvider);
     final syncState = ref.watch(syncProvider);
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     Widget buildSyncIcon() {
       switch (syncState) {
         case SyncState.synced:
-          return const Icon(Icons.cloud_done, color: Colors.green, size: 20);
+          return const Icon(Icons.cloud_done, color: Colors.greenAccent, size: 20);
         case SyncState.syncing:
-          return const SizedBox(
+          return SizedBox(
             width: 20,
             height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
           );
         case SyncState.offline:
-          return const Icon(Icons.cloud_off, color: Colors.grey, size: 20);
+          return const Icon(Icons.cloud_off, color: Colors.white38, size: 20);
         case SyncState.failed:
-          return const Icon(Icons.cloud_off, color: Colors.red, size: 20);
+          return const Icon(Icons.cloud_off, color: Colors.redAccent, size: 20);
       }
     }
 
@@ -64,11 +66,11 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            const Text('My Vault'),
+            const Text('Vault Secure'),
             const SizedBox(width: 12),
             buildSyncIcon(),
           ],
-        ),
+        ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.1, end: 0),
         actions: [
           if (syncState == SyncState.failed)
             IconButton(
@@ -79,7 +81,7 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
               },
             ),
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.settings_outlined),
             onPressed: () {
               Navigator.push(
                 context,
@@ -88,16 +90,15 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.lock),
+            icon: const Icon(Icons.lock_outline),
             tooltip: 'Lock Vault',
             onPressed: () {
-              // Note: This logs out of both vault and supabase in the current AuthProvider
               ref.read(authProvider.notifier).logout();
             },
           )
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(110),
+          preferredSize: const Size.fromHeight(120),
           child: Column(
             children: [
               Padding(
@@ -106,22 +107,18 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                   decoration: InputDecoration(
                     hintText: 'Search title or username...',
                     prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                    contentPadding: EdgeInsets.zero,
                   ),
                   onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
-                ),
+                ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.2, end: 0),
               ),
               asyncEntries.maybeWhen(
                 data: (entries) {
                   final allTags = entries.expand((e) => e.tags).toSet().toList()..sort();
-                  if (allTags.isEmpty) return const SizedBox.shrink();
+                  if (allTags.isEmpty) return const SizedBox(height: 16);
                   
-                  return SizedBox(
-                    height: 50,
+                  return Container(
+                    height: 56,
+                    padding: const EdgeInsets.only(bottom: 8),
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -132,45 +129,54 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                         return Padding(
                           padding: const EdgeInsets.only(right: 8.0),
                           child: FilterChip(
-                            label: Text(tag),
+                            label: Text(tag, style: TextStyle(color: isSelected ? Colors.white : Colors.white70)),
                             selected: isSelected,
+                            showCheckmark: false,
+                            selectedColor: primaryColor.withValues(alpha: 0.5),
+                            backgroundColor: Theme.of(context).cardColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(color: isSelected ? primaryColor : Colors.white12),
+                            ),
                             onSelected: (selected) {
                               setState(() {
                                 _selectedTag = selected ? tag : null;
                               });
                             },
                           ),
-                        );
+                        ).animate().fadeIn(delay: (200 + index * 50).ms).slideX(begin: 0.2, end: 0);
                       },
                     ),
                   );
                 },
-                orElse: () => const SizedBox.shrink(),
+                orElse: () => const SizedBox(height: 16),
               )
             ],
           ),
         ),
       ),
       body: asyncEntries.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, st) => Center(child: Text('Error: $err')),
+        loading: () => Center(child: CircularProgressIndicator(color: primaryColor)),
+        error: (err, st) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.redAccent))),
         data: (entries) {
           if (entries.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.lock_outline, size: 64, color: Colors.blueAccent.withValues(alpha: 0.5)),
-                  const SizedBox(height: 16),
-                  const Text(
+                  Icon(Icons.shield_outlined, size: 80, color: primaryColor.withValues(alpha: 0.5))
+                      .animate(onPlay: (controller) => controller.repeat(reverse: true))
+                      .moveY(begin: -5, end: 5, duration: 2.seconds),
+                  const SizedBox(height: 24),
+                  Text(
                     'Your vault is empty',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
+                    style: Theme.of(context).textTheme.displayMedium?.copyWith(fontSize: 24),
+                  ).animate().fadeIn().slideY(begin: 0.2, end: 0),
                   const SizedBox(height: 8),
                   const Text(
-                    'Tap the + button below to add your first password.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
+                    'Tap the + button to add your first password.',
+                    style: TextStyle(color: Colors.white54),
+                  ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.2, end: 0),
                 ],
               ),
             );
@@ -188,52 +194,70 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.search_off, size: 64, color: Colors.grey.withValues(alpha: 0.5)),
-                  const SizedBox(height: 16),
-                  const Text(
+                  const Icon(Icons.search_off, size: 64, color: Colors.white24),
+                  const SizedBox(height: 24),
+                  Text(
                     'No results found',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
                   const Text(
                     'Try adjusting your search or filters.',
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Colors.white54),
                   ),
                 ],
-              ),
+              ).animate().fadeIn(),
             );
           }
 
           return ListView.builder(
+            padding: const EdgeInsets.only(bottom: 100), // Space for FAB
             itemCount: filtered.length,
             itemBuilder: (context, index) {
               final entry = filtered[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.blueAccent.withValues(alpha: 0.2),
-                  child: Text(entry.title.isNotEmpty ? entry.title[0].toUpperCase() : '?'),
-                ),
-                title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text(entry.username),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.copy),
-                      tooltip: 'Copy Password',
-                      onPressed: () => _copyToClipboard(entry.password, 'Password'),
+              return Card(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(24),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) => AddEditEntryScreen(entry: entry),
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          return FadeTransition(opacity: animation, child: child);
+                        },
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: ListTile(
+                      leading: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: primaryColor.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Center(
+                          child: Text(
+                            entry.title.isNotEmpty ? entry.title[0].toUpperCase() : '?',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 18),
+                          ),
+                        ),
+                      ),
+                      title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      subtitle: Text(entry.username, style: const TextStyle(color: Colors.white54)),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.copy, color: Colors.white38),
+                        tooltip: 'Copy Password',
+                        onPressed: () => _copyToClipboard(entry.password, 'Password'),
+                      ),
                     ),
-                  ],
+                  ),
                 ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AddEditEntryScreen(entry: entry),
-                    ),
-                  );
-                },
-              );
+              ).animate().fadeIn(duration: 400.ms, delay: (index * 50).ms).slideX(begin: 0.1, end: 0, curve: Curves.easeOutQuad);
             },
           );
         },
@@ -242,13 +266,21 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const AddEditEntryScreen(),
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => const AddEditEntryScreen(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                const begin = Offset(0.0, 1.0);
+                const end = Offset.zero;
+                const curve = Curves.ease;
+                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                return SlideTransition(position: animation.drive(tween), child: child);
+              },
             ),
           );
         },
-        child: const Icon(Icons.add),
-      ),
+        child: const Icon(Icons.add, size: 28),
+      ).animate().scale(delay: 400.ms, duration: 400.ms, curve: Curves.easeOutBack),
     );
   }
 }
+

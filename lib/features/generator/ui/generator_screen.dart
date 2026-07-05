@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../generator_service.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class GeneratorScreen extends StatefulWidget {
   final bool isStandalone;
@@ -96,48 +97,53 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
                 ),
               ],
             ),
-            SwitchListTile(
-              title: const Text('Uppercase (A-Z)'),
-              value: _uppercase,
-              onChanged: (val) {
-                setState(() => _uppercase = val);
-                _generate();
-              },
-            ),
-            SwitchListTile(
-              title: const Text('Lowercase (a-z)'),
-              value: _lowercase,
-              onChanged: (val) {
-                setState(() => _lowercase = val);
-                _generate();
-              },
-            ),
-            SwitchListTile(
-              title: const Text('Numbers (0-9)'),
-              value: _numbers,
-              onChanged: (val) {
-                setState(() => _numbers = val);
-                _generate();
-              },
-            ),
-            SwitchListTile(
-              title: const Text('Symbols (!@#...)'),
-              value: _symbols,
-              onChanged: (val) {
-                setState(() => _symbols = val);
-                _generate();
-              },
+            Card(
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('Uppercase (A-Z)'),
+                    value: _uppercase,
+                    onChanged: (val) {
+                      setState(() => _uppercase = val);
+                      _generate();
+                    },
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    title: const Text('Lowercase (a-z)'),
+                    value: _lowercase,
+                    onChanged: (val) {
+                      setState(() => _lowercase = val);
+                      _generate();
+                    },
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    title: const Text('Numbers (0-9)'),
+                    value: _numbers,
+                    onChanged: (val) {
+                      setState(() => _numbers = val);
+                      _generate();
+                    },
+                  ),
+                  const Divider(height: 1),
+                  SwitchListTile(
+                    title: const Text('Symbols (!@#...)'),
+                    value: _symbols,
+                    onChanged: (val) {
+                      setState(() => _symbols = val);
+                      _generate();
+                    },
+                  ),
+                ],
+              ),
             ),
             const Spacer(),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                textStyle: const TextStyle(fontSize: 18),
-              ),
               onPressed: _copyAndClose,
               child: Text(widget.isStandalone ? 'Copy Password' : 'Use Password'),
             ),
-          ],
+          ].animate(interval: 50.ms).fadeIn(duration: 400.ms).slideX(begin: 0.1, end: 0, curve: Curves.easeOut),
         ),
       ),
     );

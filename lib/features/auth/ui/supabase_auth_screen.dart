@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class SupabaseAuthScreen extends ConsumerStatefulWidget {
   const SupabaseAuthScreen({super.key});
@@ -49,19 +50,25 @@ class _SupabaseAuthScreenState extends ConsumerState<SupabaseAuthScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(Icons.cloud_sync, size: 64, color: Colors.blueAccent),
-              const SizedBox(height: 32),
-              Text(
-                _isLogin ? 'Welcome Back' : 'Join 1Pass',
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
+              children: [
+                Hero(
+                  tag: 'app_logo',
+                  child: Image.asset(
+                    'assets/images/1pass.png',
+                    height: 100,
+                  ).animate(onPlay: (controller) => controller.repeat(reverse: true)).moveY(begin: -5, end: 5, duration: 2.seconds, curve: Curves.easeInOut),
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  _isLogin ? 'Welcome Back' : 'Join 1Pass',
+                  style: Theme.of(context).textTheme.displayMedium?.copyWith(fontSize: 28),
+                  textAlign: TextAlign.center,
+                ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0, curve: Curves.easeOutQuad),
               const SizedBox(height: 8),
               const Text(
                 'This account is used to sync your encrypted vault across devices. It is separate from your Master Password.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(color: Colors.white54),
               ),
               const SizedBox(height: 32),
               TextField(
@@ -69,7 +76,7 @@ class _SupabaseAuthScreenState extends ConsumerState<SupabaseAuthScreen> {
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
                   labelText: 'Email',
-                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.email_outlined),
                 ),
               ),
               const SizedBox(height: 16),
@@ -78,7 +85,7 @@ class _SupabaseAuthScreenState extends ConsumerState<SupabaseAuthScreen> {
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: 'Password',
-                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock_outline),
                 ),
               ),
               const SizedBox(height: 32),
@@ -87,18 +94,18 @@ class _SupabaseAuthScreenState extends ConsumerState<SupabaseAuthScreen> {
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: Text(
                     authState.errorMessage!,
-                    style: const TextStyle(color: Colors.red),
+                    style: const TextStyle(color: Colors.redAccent),
                     textAlign: TextAlign.center,
                   ),
                 ),
               ElevatedButton(
                 onPressed: authState.isAuthenticating ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  textStyle: const TextStyle(fontSize: 18),
-                ),
                 child: authState.isAuthenticating
-                    ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        height: 24, 
+                        width: 24, 
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
                     : Text(_isLogin ? 'Sign In' : 'Sign Up'),
               ),
               const SizedBox(height: 16),
@@ -110,7 +117,7 @@ class _SupabaseAuthScreenState extends ConsumerState<SupabaseAuthScreen> {
                 },
                 child: Text(_isLogin ? 'Don\'t have an account? Sign Up' : 'Already have an account? Sign In'),
               ),
-              ],
+              ].animate(interval: 50.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOut),
             ),
           ),
         ),

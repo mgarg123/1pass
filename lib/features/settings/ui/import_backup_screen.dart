@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/backup_provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class ImportBackupScreen extends ConsumerStatefulWidget {
   final String backupJson;
@@ -46,59 +47,58 @@ class _ImportBackupScreenState extends ConsumerState<ImportBackupScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Import Backup')),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(Icons.file_download, size: 64, color: Colors.blueAccent),
-              const SizedBox(height: 24),
-              const Text(
-                'Enter Master Password',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Please enter the master password that was used when this backup was created.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              TextField(
-                controller: _passwordController,
-                obscureText: _obscureText,
-                onSubmitted: (_) => _submit(),
-                decoration: InputDecoration(
-                  labelText: 'Backup Master Password',
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () => setState(() => _obscureText = !_obscureText),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(Icons.file_download, size: 64, color: Colors.blueAccent),
+                const SizedBox(height: 24),
+                Text(
+                  'Enter Master Password',
+                  style: Theme.of(context).textTheme.displayMedium?.copyWith(fontSize: 24),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Please enter the master password that was used when this backup was created.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white54),
+                ),
+                const SizedBox(height: 32),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: _obscureText,
+                  onSubmitted: (_) => _submit(),
+                  decoration: InputDecoration(
+                    labelText: 'Backup Master Password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
+                      onPressed: () => setState(() => _obscureText = !_obscureText),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 32),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
+                const SizedBox(height: 32),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.redAccent),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
+                ElevatedButton(
+                  onPressed: _isImporting ? null : _submit,
+                  child: _isImporting
+                      ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Import Vault'),
                 ),
-              ElevatedButton(
-                onPressed: _isImporting ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  textStyle: const TextStyle(fontSize: 18),
-                ),
-                child: _isImporting
-                    ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Import Vault'),
-              ),
-            ],
+              ].animate(interval: 50.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOut),
+            ),
           ),
         ),
       ),
