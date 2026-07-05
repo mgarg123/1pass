@@ -25,6 +25,8 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
 
   bool _obscurePassword = true;
   String _passwordStrength = '';
+  bool _isSaving = false;
+  bool _isDeleting = false;
 
   @override
   void initState() {
@@ -65,6 +67,8 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    setState(() => _isSaving = true);
 
     final tags = _tagsController.text
         .split(',')
@@ -97,7 +101,8 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving: $e')));
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to save entry. Please try again.')));
       }
     }
   }
@@ -121,12 +126,14 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
     );
     
     if (confirm == true) {
+      setState(() => _isDeleting = true);
       try {
         await ref.read(vaultProvider.notifier).deleteEntry(widget.entry!.id);
         if (mounted) Navigator.pop(context);
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error deleting: $e')));
+          setState(() => _isDeleting = false);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to delete entry. Please try again.')));
         }
       }
     }
@@ -139,14 +146,24 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
         title: Text(widget.entry == null ? 'Add Entry' : 'Edit Entry'),
         actions: [
           if (widget.entry != null)
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.redAccent),
-              onPressed: _delete,
-            ),
-          IconButton(
-            icon: const Icon(Icons.check),
-            onPressed: _save,
-          ),
+            _isDeleting
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.redAccent),
+                    onPressed: _isSaving ? null : _delete,
+                  ),
+          _isSaving
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.check),
+                  onPressed: _isDeleting ? null : _save,
+                ),
         ],
       ),
       body: SingleChildScrollView(
