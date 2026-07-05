@@ -150,6 +150,18 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1, end: 0),
           ),
+          Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            child: ListTile(
+              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              title: const Text('Log Out', style: TextStyle(color: Colors.redAccent)),
+              subtitle: const Text('Sign out of your cloud account'),
+              onTap: () {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                ref.read(authProvider.notifier).logout();
+              },
+            ),
+          ).animate().fadeIn(delay: 250.ms).slideY(begin: 0.1, end: 0),
         ],
       ),
     );

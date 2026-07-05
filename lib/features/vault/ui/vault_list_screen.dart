@@ -93,7 +93,7 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
             icon: const Icon(Icons.lock_outline),
             tooltip: 'Lock Vault',
             onPressed: () {
-              ref.read(authProvider.notifier).logout();
+              ref.read(authProvider.notifier).lockVault();
             },
           )
         ],

@@ -196,6 +196,11 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  Future<void> lockVault() async {
+    state.encryptionKey?.clear();
+    state = state.copyWith(clearKey: true);
+  }
+
   Future<void> logout() async {
     state.encryptionKey?.clear();
     await ref.read(biometricProvider.notifier).clearStoredKey();
