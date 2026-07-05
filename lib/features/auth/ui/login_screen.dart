@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
+import '../providers/biometric_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -12,6 +13,21 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscureText = true;
+  bool _didAutoPromptBiometrics = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didAutoPromptBiometrics) {
+      _didAutoPromptBiometrics = true;
+      final biometricState = ref.read(biometricProvider);
+      if (biometricState.isEnabled && !ref.read(biometricProvider.notifier).isMasterPasswordRequired()) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.read(authProvider.notifier).unlockWithBiometrics();
+        });
+      }
+    }
+  }
 
   Future<void> _submit() async {
     if (_passwordController.text.isEmpty) return;
@@ -71,6 +87,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Text('Unlock'),
               ),
+              if (ref.watch(biometricProvider).isEnabled) ...[
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  onPressed: authState.isAuthenticating
+                      ? null
+                      : () => ref.read(authProvider.notifier).unlockWithBiometrics(),
+                  icon: const Icon(Icons.fingerprint),
+                  label: const Text('Unlock with Biometrics'),
+                ),
+              ],
             ],
           ),
         ),

@@ -67,7 +67,7 @@ class SyncNotifier extends Notifier<SyncState> {
       
       state = SyncState.synced;
     } catch (e) {
-      print('Sync error: $e');
+      // Sync error ignored silently for security/hygiene
       state = SyncState.failed;
     }
   }

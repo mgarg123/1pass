@@ -64,6 +64,8 @@ class AutoLockNotifier extends Notifier<int> with WidgetsBindingObserver {
       }
       _lastActive = null;
       _resetTimer();
+    } else if (state == AppLifecycleState.detached) {
+      _lockApp();
     }
   }
 
