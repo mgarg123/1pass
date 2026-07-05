@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class ChangeMasterPasswordScreen extends ConsumerStatefulWidget {
   const ChangeMasterPasswordScreen({super.key});
@@ -108,7 +109,7 @@ class _ChangeMasterPasswordScreenState extends ConsumerState<ChangeMasterPasswor
                 obscureText: _obscureText,
                 decoration: InputDecoration(
                   labelText: 'Current Master Password',
-                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.password),
                   suffixIcon: IconButton(
                     icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
                     onPressed: () => setState(() => _obscureText = !_obscureText),
@@ -122,7 +123,7 @@ class _ChangeMasterPasswordScreenState extends ConsumerState<ChangeMasterPasswor
                 onChanged: _evaluateStrength,
                 decoration: const InputDecoration(
                   labelText: 'New Master Password',
-                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock_outline),
                 ),
               ),
               if (_passwordStrength.isNotEmpty)
@@ -146,21 +147,17 @@ class _ChangeMasterPasswordScreenState extends ConsumerState<ChangeMasterPasswor
                 obscureText: _obscureText,
                 decoration: const InputDecoration(
                   labelText: 'Confirm New Password',
-                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock_reset),
                 ),
               ),
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: authState.isAuthenticating ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  textStyle: const TextStyle(fontSize: 18),
-                ),
                 child: authState.isAuthenticating
-                    ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Text('Change Password'),
               ),
-            ],
+            ].animate(interval: 50.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOut),
           ),
         ),
       ),

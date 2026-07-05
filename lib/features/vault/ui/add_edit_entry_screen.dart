@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../models/vault_entry.dart';
 import '../providers/vault_provider.dart';
 import '../../generator/ui/generator_screen.dart';
@@ -173,67 +174,107 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Title *', border: OutlineInputBorder()),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _usernameController,
-                decoration: const InputDecoration(labelText: 'Username / Email *', border: OutlineInputBorder()),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                onChanged: _evaluateStrength,
-                decoration: InputDecoration(
-                  labelText: 'Password *',
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              Card(
+                margin: const EdgeInsets.only(bottom: 24),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: _titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Title *',
+                          prefixIcon: Icon(Icons.title),
+                        ),
+                        validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _usernameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Username / Email *',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        onChanged: _evaluateStrength,
+                        decoration: InputDecoration(
+                          labelText: 'Password *',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                        ),
+                        validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12.0),
+                            child: Text(
+                              _passwordStrength,
+                              style: TextStyle(
+                                color: _passwordStrength == 'Weak' ? Colors.redAccent
+                                    : _passwordStrength == 'Medium' ? Colors.orangeAccent : Colors.greenAccent,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: _openGenerator,
+                            icon: const Icon(Icons.generating_tokens),
+                            label: const Text('Generate'),
+                          )
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _passwordStrength,
-                    style: TextStyle(
-                      color: _passwordStrength == 'Weak' ? Colors.red 
-                          : _passwordStrength == 'Medium' ? Colors.orange : Colors.green,
-                      fontWeight: FontWeight.bold,
-                    ),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: _urlController,
+                        decoration: const InputDecoration(
+                          labelText: 'URL (optional)',
+                          prefixIcon: Icon(Icons.link),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _tagsController,
+                        decoration: const InputDecoration(
+                          labelText: 'Tags (comma separated)',
+                          prefixIcon: Icon(Icons.label_outline),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _notesController,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          labelText: 'Notes (optional)',
+                          alignLabelWithHint: true,
+                          prefixIcon: Icon(Icons.notes),
+                        ),
+                      ),
+                    ],
                   ),
-                  TextButton.icon(
-                    onPressed: _openGenerator,
-                    icon: const Icon(Icons.generating_tokens),
-                    label: const Text('Generate'),
-                  )
-                ],
+                ),
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _urlController,
-                decoration: const InputDecoration(labelText: 'URL (optional)', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _tagsController,
-                decoration: const InputDecoration(labelText: 'Tags (comma separated)', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _notesController,
-                maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Notes (optional)', border: OutlineInputBorder()),
-              ),
-            ],
+            ].animate(interval: 50.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutQuad),
           ),
         ),
       ),
