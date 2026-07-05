@@ -10,6 +10,7 @@ jobs:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -18,8 +19,6 @@ jobs:
             target: macos
           - os: windows-latest
             target: windows
-          - os: macos-latest
-            target: ios
 
     steps:
       - name: Checkout repository
@@ -52,15 +51,6 @@ jobs:
           flutter build windows --release
           Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath OnePass-Windows.zip
 
-      - name: Build iOS Payload
-        if: matrix.target == 'ios'
-        run: |
-          flutter build ios --release --no-codesign
-          cd build/ios/iphoneos
-          mkdir Payload
-          cp -r Runner.app Payload/
-          zip -r ../../../OnePass-iOS.zip Payload
-
       - name: Publish Release Assets
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
@@ -69,4 +59,3 @@ jobs:
             OnePass-Android.apk
             OnePass-macOS.zip
             OnePass-Windows.zip
-            OnePass-iOS.zip
