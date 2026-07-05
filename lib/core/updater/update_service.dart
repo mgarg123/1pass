@@ -102,14 +102,14 @@ class UpdateService {
   }
 
   String? getDownloadUrlForPlatform(GitHubRelease release) {
-    String assetName = '';
-    if (Platform.isAndroid) assetName = 'OnePass-Android.apk';
-    if (Platform.isMacOS) assetName = 'OnePass-macOS.zip';
-    if (Platform.isWindows) assetName = 'OnePass-Windows.zip';
+    String assetPrefix = '';
+    if (Platform.isAndroid) assetPrefix = 'OnePass-Android-';
+    if (Platform.isMacOS) assetPrefix = 'OnePass-macOS-';
+    if (Platform.isWindows) assetPrefix = 'OnePass-Windows-';
     // iOS will just use the release page URL
 
     for (var asset in release.assets) {
-      if (asset.name == assetName) {
+      if (asset.name.startsWith(assetPrefix)) {
         return asset.browserDownloadUrl;
       }
     }
