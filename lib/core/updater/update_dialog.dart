@@ -62,22 +62,28 @@ class _UpdateDialogState extends State<UpdateDialog> {
       final fileName = Uri.parse(downloadUrl).pathSegments.last;
       final savePath = '${tempDir.path}/$fileName';
 
-      final dio = Dio();
-      await dio.download(
-        downloadUrl,
-        savePath,
-        onReceiveProgress: (received, total) {
-          if (total != -1) {
-            setState(() {
-              _progress = received / total;
-            });
-          }
-        },
-      );
+      if (File(savePath).existsSync()) {
+        setState(() {
+          _statusMessage = 'Update already downloaded. Opening installer...';
+        });
+      } else {
+        final dio = Dio();
+        await dio.download(
+          downloadUrl,
+          savePath,
+          onReceiveProgress: (received, total) {
+            if (total != -1) {
+              setState(() {
+                _progress = received / total;
+              });
+            }
+          },
+        );
 
-      setState(() {
-        _statusMessage = 'Opening installer...';
-      });
+        setState(() {
+          _statusMessage = 'Opening installer...';
+        });
+      }
 
       final result = await OpenFile.open(savePath);
       
