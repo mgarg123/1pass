@@ -11,6 +11,7 @@ class VaultEntry extends Equatable {
   final List<String> tags;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool isDeleted;
 
   const VaultEntry({
     required this.id,
@@ -22,6 +23,7 @@ class VaultEntry extends Equatable {
     required this.tags,
     required this.createdAt,
     required this.updatedAt,
+    this.isDeleted = false,
   });
 
   VaultEntry copyWith({
@@ -34,6 +36,7 @@ class VaultEntry extends Equatable {
     List<String>? tags,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? isDeleted,
   }) {
     return VaultEntry(
       id: id ?? this.id,
@@ -45,16 +48,19 @@ class VaultEntry extends Equatable {
       tags: tags ?? this.tags,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
   }
 
   /// Serializes sensitive fields to a JSON string for encryption.
   String get sensitivePayload {
     return jsonEncode({
+      'title': title,
       'username': username,
       'password': password,
       'url': url,
       'notes': notes,
+      'tags': tags,
     });
   }
 
@@ -69,5 +75,6 @@ class VaultEntry extends Equatable {
         tags,
         createdAt,
         updatedAt,
+        isDeleted,
       ];
 }

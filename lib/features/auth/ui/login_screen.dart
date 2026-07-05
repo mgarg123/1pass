@@ -15,7 +15,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (_passwordController.text.isEmpty) return;
-    await ref.read(authProvider.notifier).login(_passwordController.text);
+    await ref.read(authProvider.notifier).unlockVault(_passwordController.text);
   }
 
   @override

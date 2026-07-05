@@ -102,3 +102,39 @@ class EncryptedBlob extends Equatable {
   @override
   List<Object?> get props => [cipherText, nonce, mac];
 }
+
+/// Represents the parameters used for Argon2id key derivation.
+class Argon2Params extends Equatable {
+  final int memoryKB;
+  final int iterations;
+  final int parallelism;
+  final int hashLengthBytes;
+
+  const Argon2Params({
+    required this.memoryKB,
+    required this.iterations,
+    required this.parallelism,
+    required this.hashLengthBytes,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'memory_kb': memoryKB,
+      'iterations': iterations,
+      'parallelism': parallelism,
+      'hash_length_bytes': hashLengthBytes,
+    };
+  }
+
+  factory Argon2Params.fromJson(Map<String, dynamic> json) {
+    return Argon2Params(
+      memoryKB: json['memory_kb'] as int,
+      iterations: json['iterations'] as int,
+      parallelism: json['parallelism'] as int,
+      hashLengthBytes: json['hash_length_bytes'] as int,
+    );
+  }
+
+  @override
+  List<Object?> get props => [memoryKB, iterations, parallelism, hashLengthBytes];
+}

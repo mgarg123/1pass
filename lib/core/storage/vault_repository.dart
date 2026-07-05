@@ -5,12 +5,24 @@ import '../crypto/crypto_models.dart';
 import '../crypto/crypto_service.dart';
 import 'hive_setup.dart';
 
+class LocalUserMeta {
+  final Salt salt;
+  final Argon2Params? argon2Params;
+  final String? verificationBlob;
+
+  LocalUserMeta({
+    required this.salt,
+    this.argon2Params,
+    this.verificationBlob,
+  });
+}
+
 abstract class VaultRepository {
   Future<List<VaultEntry>> getAllEntries(EncryptionKey key);
   Future<void> saveEntry(VaultEntry entry, EncryptionKey key);
   Future<void> deleteEntry(String id);
-  Future<void> saveSalt(Salt salt);
-  Future<Salt?> getSalt();
+  Future<void> saveMeta(Salt salt, Argon2Params params, String verificationBlob);
+  Future<LocalUserMeta?> getMeta();
   Future<void> clearVault();
 }
 
@@ -35,14 +47,17 @@ class HiveVaultRepository implements VaultRepository {
 
       entries.add(VaultEntry(
         id: data['id'] as String,
-        title: data['title'] as String,
+        title: (decryptedJson['title'] as String?) ?? (data['title'] as String),
         username: decryptedJson['username'] as String,
         password: decryptedJson['password'] as String,
         url: decryptedJson['url'] as String?,
         notes: decryptedJson['notes'] as String?,
-        tags: List<String>.from(data['tags'] ?? []),
+        tags: decryptedJson['tags'] != null 
+            ? List<String>.from(decryptedJson['tags']) 
+            : List<String>.from(data['tags'] ?? []),
         createdAt: DateTime.parse(data['createdAt'] as String),
         updatedAt: DateTime.parse(data['updatedAt'] as String),
+        isDeleted: data['isDeleted'] == true,
       ));
     }
 
@@ -64,6 +79,7 @@ class HiveVaultRepository implements VaultRepository {
       'tags': entry.tags,
       'createdAt': entry.createdAt.toIso8601String(),
       'updatedAt': entry.updatedAt.toIso8601String(),
+      'isDeleted': entry.isDeleted,
       'encryptedData': blob.toStorageString(),
     };
 
@@ -72,19 +88,43 @@ class HiveVaultRepository implements VaultRepository {
 
   @override
   Future<void> deleteEntry(String id) async {
-    await HiveSetup.vaultBox.delete(id);
+    final box = HiveSetup.vaultBox;
+    final data = box.get(id);
+    if (data != null) {
+      final updatedData = Map<dynamic, dynamic>.from(data as Map);
+      updatedData['isDeleted'] = true;
+      
+      final currentUpdatedAt = DateTime.parse(data['updatedAt'] as String);
+      DateTime newUpdatedAt = DateTime.now().toUtc();
+      if (!newUpdatedAt.isAfter(currentUpdatedAt)) {
+        newUpdatedAt = currentUpdatedAt.add(const Duration(milliseconds: 1));
+      }
+      updatedData['updatedAt'] = newUpdatedAt.toIso8601String();
+      
+      await box.put(id, updatedData);
+    }
   }
 
   @override
-  Future<void> saveSalt(Salt salt) async {
+  Future<void> saveMeta(Salt salt, Argon2Params params, String verificationBlob) async {
     await HiveSetup.metaBox.put('user_salt', salt.toBase64());
+    await HiveSetup.metaBox.put('argon2_params', params.toJson());
+    await HiveSetup.metaBox.put('verification_blob', verificationBlob);
   }
 
   @override
-  Future<Salt?> getSalt() async {
+  Future<LocalUserMeta?> getMeta() async {
     final saltStr = HiveSetup.metaBox.get('user_salt') as String?;
     if (saltStr == null) return null;
-    return Salt.fromBase64(saltStr);
+    
+    final paramsJson = HiveSetup.metaBox.get('argon2_params') as Map?;
+    final verificationBlob = HiveSetup.metaBox.get('verification_blob') as String?;
+
+    return LocalUserMeta(
+      salt: Salt.fromBase64(saltStr),
+      argon2Params: paramsJson != null ? Argon2Params.fromJson(Map<String, dynamic>.from(paramsJson)) : null,
+      verificationBlob: verificationBlob,
+    );
   }
 
   @override

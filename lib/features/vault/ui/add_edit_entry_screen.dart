@@ -72,7 +72,12 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
         .where((e) => e.isNotEmpty)
         .toList();
 
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
+    DateTime newUpdatedAt = now;
+    if (widget.entry != null && !newUpdatedAt.isAfter(widget.entry!.updatedAt)) {
+      newUpdatedAt = widget.entry!.updatedAt.add(const Duration(milliseconds: 1));
+    }
+
     final newEntry = VaultEntry(
       id: widget.entry?.id ?? const Uuid().v4(),
       title: _titleController.text,
@@ -82,7 +87,7 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
       notes: _notesController.text.isEmpty ? null : _notesController.text,
       tags: tags,
       createdAt: widget.entry?.createdAt ?? now,
-      updatedAt: now,
+      updatedAt: newUpdatedAt,
     );
 
     try {

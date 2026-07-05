@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../models/vault_entry.dart';
+import '../../vault/models/vault_entry.dart';
+import '../../../core/sync/sync_provider.dart';
 
 class VaultNotifier extends AsyncNotifier<List<VaultEntry>> {
   @override
@@ -14,7 +15,8 @@ class VaultNotifier extends AsyncNotifier<List<VaultEntry>> {
     if (key == null) return [];
 
     final repo = ref.read(vaultRepositoryProvider);
-    final entries = await repo.getAllEntries(key);
+    final allEntries = await repo.getAllEntries(key);
+    final entries = allEntries.where((e) => !e.isDeleted).toList();
     entries.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
     return entries;
   }
@@ -39,6 +41,9 @@ class VaultNotifier extends AsyncNotifier<List<VaultEntry>> {
       
       // Reload list
       await _loadEntries();
+      
+      // Trigger sync
+      ref.read(syncProvider.notifier).triggerSync();
     } catch (e) {
       // Re-throw so UI can handle errors
       rethrow;
@@ -50,6 +55,9 @@ class VaultNotifier extends AsyncNotifier<List<VaultEntry>> {
       final repo = ref.read(vaultRepositoryProvider);
       await repo.deleteEntry(id);
       await _loadEntries();
+      
+      // Trigger sync
+      ref.read(syncProvider.notifier).triggerSync();
     } catch (e) {
       rethrow;
     }
