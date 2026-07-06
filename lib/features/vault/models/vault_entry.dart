@@ -11,6 +11,12 @@ class VaultEntry extends Equatable {
   final String? url;
   final String? notes;
   final String? totpSecret;
+  final String? cardNumber;
+  final String? cardholderName;
+  final String? expiryDate;
+  final String? cvv;
+  final String? pin;
+  final String? bankName;
   final List<String> tags;
   final List<String> ignoredWarnings;
   final DateTime createdAt;
@@ -26,6 +32,12 @@ class VaultEntry extends Equatable {
     this.url,
     this.notes,
     this.totpSecret,
+    this.cardNumber,
+    this.cardholderName,
+    this.expiryDate,
+    this.cvv,
+    this.pin,
+    this.bankName,
     required this.tags,
     this.ignoredWarnings = const [],
     required this.createdAt,
@@ -42,6 +54,12 @@ class VaultEntry extends Equatable {
     String? url,
     String? notes,
     String? totpSecret,
+    String? cardNumber,
+    String? cardholderName,
+    String? expiryDate,
+    String? cvv,
+    String? pin,
+    String? bankName,
     List<String>? tags,
     List<String>? ignoredWarnings,
     DateTime? createdAt,
@@ -57,6 +75,12 @@ class VaultEntry extends Equatable {
       url: url ?? this.url,
       notes: notes ?? this.notes,
       totpSecret: totpSecret ?? this.totpSecret,
+      cardNumber: cardNumber ?? this.cardNumber,
+      cardholderName: cardholderName ?? this.cardholderName,
+      expiryDate: expiryDate ?? this.expiryDate,
+      cvv: cvv ?? this.cvv,
+      pin: pin ?? this.pin,
+      bankName: bankName ?? this.bankName,
       tags: tags ?? this.tags,
       ignoredWarnings: ignoredWarnings ?? this.ignoredWarnings,
       createdAt: createdAt ?? this.createdAt,
@@ -75,6 +99,12 @@ class VaultEntry extends Equatable {
       'url': url,
       'notes': notes,
       'totpSecret': totpSecret,
+      'cardNumber': cardNumber,
+      'cardholderName': cardholderName,
+      'expiryDate': expiryDate,
+      'cvv': cvv,
+      'pin': pin,
+      'bankName': bankName,
       'tags': tags,
       'ignoredWarnings': ignoredWarnings,
     });
@@ -90,6 +120,12 @@ class VaultEntry extends Equatable {
         url,
         notes,
         totpSecret,
+        cardNumber,
+        cardholderName,
+        expiryDate,
+        cvv,
+        pin,
+        bankName,
         tags,
         ignoredWarnings,
         createdAt,
