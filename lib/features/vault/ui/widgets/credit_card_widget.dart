@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../../../core/utils/clipboard_util.dart';
 
 enum CardNetwork { visa, mastercard, amex, discover, rupay, dinersClub, unknown }
 
@@ -191,16 +193,42 @@ class CreditCardWidget extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(
-              _formatCardNumber(cardNumber),
-              maxLines: 1,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                letterSpacing: 2,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w600,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  _formatCardNumber(cardNumber),
+                  maxLines: 1,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    letterSpacing: 2,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (cardNumber.isNotEmpty) ...[
+                  const SizedBox(width: 12),
+                  InkWell(
+                    onTap: () {
+                      ClipboardUtil.copyTemporary(cardNumber);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Card number copied to clipboard'),
+                          behavior: SnackBarBehavior.floating,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4.0),
+                      child: Icon(Icons.copy, color: Colors.white70, size: 20),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           Row(
