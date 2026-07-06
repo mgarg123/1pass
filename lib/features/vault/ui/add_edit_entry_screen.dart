@@ -54,10 +54,21 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
       _passwordStrength = '';
     } else if (value.length < 8) {
       _passwordStrength = 'Weak';
-    } else if (value.length < 12) {
-      _passwordStrength = 'Medium';
-    } else {
+    } else if (value.length > 16) {
       _passwordStrength = 'Strong';
+    } else {
+      bool hasLetters = value.contains(RegExp(r'[a-zA-Z]'));
+      bool hasNumbers = value.contains(RegExp(r'[0-9]'));
+      bool hasSpecial = value.contains(RegExp(r'[^a-zA-Z0-9]'));
+      int types = (hasLetters ? 1 : 0) + (hasNumbers ? 1 : 0) + (hasSpecial ? 1 : 0);
+      
+      if (types < 2) {
+        _passwordStrength = 'Weak';
+      } else if (value.length >= 12 && types >= 3) {
+        _passwordStrength = 'Strong';
+      } else {
+        _passwordStrength = 'Medium';
+      }
     }
     
     // Trigger breach check

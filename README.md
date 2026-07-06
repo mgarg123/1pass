@@ -53,5 +53,8 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to set up a dev
 ## Security
 If you discover a security vulnerability, please see [SECURITY.md](SECURITY.md) for reporting guidelines.
 
+## Attribution
+- Passphrase generation uses the [EFF Large Wordlist](https://www.eff.org/dice) created by the Electronic Frontier Foundation.
+
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
