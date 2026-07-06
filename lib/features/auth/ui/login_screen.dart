@@ -64,9 +64,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               children: [
                 Hero(
                   tag: 'app_logo',
-                  child: Image.asset(
-                    'assets/images/1pass.png',
-                    height: 120,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(32),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Image.asset(
+                      'assets/images/1pass.png',
+                      height: 88,
+                    ),
                   ).animate(onPlay: (controller) => controller.repeat(reverse: true)).moveY(begin: -5, end: 5, duration: 2.seconds, curve: Curves.easeInOut),
                 ),
                 const SizedBox(height: 32),

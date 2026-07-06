@@ -125,10 +125,13 @@ flutter_native_splash:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
+  image_path: "assets/images/1pass.png"
+  background_color: "#000000"
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/images/1pass.png"
   web:
     generate: true
     image_path: "assets/images/1pass.png"
     background_color: "#000000"
   remove_alpha_ios: true
-  image_path: "assets/images/1pass.png"
   min_sdk_android: 21

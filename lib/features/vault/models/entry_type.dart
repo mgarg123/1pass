@@ -1,7 +1,12 @@
+import 'package:flutter/material.dart';
+
 enum EntryType {
   login,
   authenticator,
-  creditCard;
+  creditCard,
+  secureNote,
+  wifi,
+  identity;
 
   String get displayName {
     switch (this) {
@@ -11,6 +16,29 @@ enum EntryType {
         return 'Authenticator (2FA)';
       case EntryType.creditCard:
         return 'Credit Card';
+      case EntryType.secureNote:
+        return 'Secure Note';
+      case EntryType.wifi:
+        return 'Wi-Fi Password';
+      case EntryType.identity:
+        return 'Identity';
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case EntryType.login:
+        return Colors.blue;
+      case EntryType.creditCard:
+        return Colors.purple;
+      case EntryType.authenticator:
+        return Colors.green;
+      case EntryType.secureNote:
+        return Colors.orange;
+      case EntryType.wifi:
+        return Colors.cyan;
+      case EntryType.identity:
+        return Colors.indigo;
     }
   }
 }
