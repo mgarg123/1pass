@@ -17,7 +17,11 @@ class VaultNotifier extends AsyncNotifier<List<VaultEntry>> {
     final repo = ref.read(vaultRepositoryProvider);
     final allEntries = await repo.getAllEntries(key);
     final entries = allEntries.where((e) => !e.isDeleted).toList();
-    entries.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    entries.sort((a, b) {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    });
     return entries;
   }
 
@@ -61,6 +65,11 @@ class VaultNotifier extends AsyncNotifier<List<VaultEntry>> {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<void> toggleFavorite(VaultEntry entry) async {
+    final updated = entry.copyWith(isFavorite: !entry.isFavorite);
+    await saveEntry(updated);
   }
 }
 

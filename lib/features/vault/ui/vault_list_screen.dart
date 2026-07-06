@@ -308,10 +308,26 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
         final entry = filtered[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          color: entry.isFavorite ? primaryColor.withValues(alpha: 0.1) : null,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: entry.isFavorite ? BorderSide(color: primaryColor.withValues(alpha: 0.3), width: 1) : BorderSide.none,
+          ),
           elevation: 2,
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
+            onLongPress: () async {
+              await ref.read(vaultProvider.notifier).toggleFavorite(entry);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(entry.isFavorite ? 'Removed from favorites' : 'Added to favorites'),
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
             onTap: () {
               Navigator.push(
                 context,

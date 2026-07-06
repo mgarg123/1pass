@@ -78,6 +78,7 @@ class HiveVaultRepository implements VaultRepository {
         createdAt: DateTime.parse(data['createdAt'] as String),
         updatedAt: DateTime.parse(data['updatedAt'] as String),
         isDeleted: data['isDeleted'] == true,
+        isFavorite: (decryptedJson['isFavorite'] as bool?) ?? (data['isFavorite'] as bool?) ?? false,
       ));
     }
 
@@ -101,6 +102,7 @@ class HiveVaultRepository implements VaultRepository {
       'createdAt': entry.createdAt.toIso8601String(),
       'updatedAt': entry.updatedAt.toIso8601String(),
       'isDeleted': entry.isDeleted,
+      'isFavorite': entry.isFavorite,
       'encryptedData': blob.toStorageString(),
     };
 

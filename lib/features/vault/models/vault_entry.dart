@@ -22,6 +22,7 @@ class VaultEntry extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
+  final bool isFavorite;
 
   const VaultEntry({
     required this.id,
@@ -43,6 +44,7 @@ class VaultEntry extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.isDeleted = false,
+    this.isFavorite = false,
   });
 
   VaultEntry copyWith({
@@ -65,6 +67,7 @@ class VaultEntry extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
+    bool? isFavorite,
   }) {
     return VaultEntry(
       id: id ?? this.id,
@@ -86,6 +89,7 @@ class VaultEntry extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      isFavorite: isFavorite ?? this.isFavorite,
     );
   }
 
@@ -107,6 +111,7 @@ class VaultEntry extends Equatable {
       'bankName': bankName,
       'tags': tags,
       'ignoredWarnings': ignoredWarnings,
+      'isFavorite': isFavorite,
     });
   }
 
@@ -131,5 +136,6 @@ class VaultEntry extends Equatable {
         createdAt,
         updatedAt,
         isDeleted,
+        isFavorite,
       ];
 }
