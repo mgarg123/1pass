@@ -3,8 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
 import 'core/storage/hive_setup.dart';
 import 'features/auth/ui/auth_gate.dart';
+import 'core/storage/vault_repository.dart';
+import 'core/crypto/crypto_service.dart';
+import 'core/crypto/crypto_models.dart';
+import 'dart:convert';
+import 'package:uuid/uuid.dart';
+import 'features/vault/models/vault_entry.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +28,87 @@ void main() async {
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
+
+  // Set up Autofill Save handler for background engine
+  const platform = MethodChannel('com.example.onepass/autofill');
+  platform.setMethodCallHandler((call) async {
+    if (call.method == 'saveAutofillEntry') {
+      try {
+        final args = call.arguments as Map<dynamic, dynamic>;
+        final domain = args['domain'] as String? ?? '';
+        final username = args['username'] as String? ?? '';
+        final password = args['password'] as String? ?? '';
+
+        if (domain.isNotEmpty || (username.isNotEmpty && password.isNotEmpty)) {
+          final storage = const FlutterSecureStorage();
+          final keyBase64 = await storage.read(key: 'biometric_derived_key');
+          if (keyBase64 == null) {
+            debugPrint('No key found for autofill save');
+            return false;
+          }
+          final keyBytes = base64Decode(keyBase64);
+          final encryptionKey = EncryptionKey(keyBytes);
+          final cryptoService = CryptoService();
+          final repository = HiveVaultRepository(cryptoService);
+          
+          // fuzzy match check
+          final entries = await repository.getAllEntries(encryptionKey);
+          VaultEntry? match;
+          
+          for (final entry in entries) {
+            final t = domain.toLowerCase();
+            final url = entry.url?.toLowerCase() ?? '';
+            final title = entry.title.toLowerCase();
+            
+            bool isMatch = false;
+            if (t.isNotEmpty && (url.contains(t) || t.contains(url) || title.contains(t) || t.contains(title))) {
+              isMatch = true;
+            } else if (t.isNotEmpty && url.isNotEmpty) {
+              final cleanU = url.replaceAll('https://', '').replaceAll('http://', '').replaceAll('www.', '').split('/')[0];
+              if (t.contains(cleanU) || cleanU.contains(t)) {
+                isMatch = true;
+              }
+            }
+            
+            if (isMatch && entry.username == username) {
+              match = entry;
+              break;
+            }
+          }
+          
+          if (match != null) {
+            if (match.password != password) {
+              final updatedEntry = match.copyWith(
+                password: password,
+                updatedAt: DateTime.now(),
+              );
+              await repository.saveEntry(updatedEntry, encryptionKey);
+            }
+            // If identical, do nothing (silently skip)
+          } else {
+            // Create new entry
+            final newEntry = VaultEntry(
+              id: const Uuid().v4(),
+              title: domain.isNotEmpty ? domain : 'Saved Credential',
+              username: username,
+              password: password,
+              url: domain,
+              notes: '',
+              tags: [],
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+            await repository.saveEntry(newEntry, encryptionKey);
+          }
+        }
+        return true;
+      } catch (e) {
+        debugPrint('Error saving autofill entry: $e');
+        return false;
+      }
+    }
+    return null;
+  });
 
   runApp(
     const ProviderScope(
