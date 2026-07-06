@@ -100,10 +100,13 @@ class PasswordHealthNotifier extends AsyncNotifier<PasswordHealthState> {
 
   bool _isWeak(String password) {
     if (password.length < 8) return true;
+    if (password.length > 16) return false; // Long passphrases are not weak
+    
     bool hasLetters = password.contains(RegExp(r'[a-zA-Z]'));
     bool hasNumbers = password.contains(RegExp(r'[0-9]'));
-    bool hasSpecial = password.contains(RegExp(r'[!@#\$&*~]'));
-    // Weak if it doesn't have at least two types of characters
+    bool hasSpecial = password.contains(RegExp(r'[^a-zA-Z0-9]'));
+    
+    // Weak if it doesn't have at least two types of characters (for passwords 8-16 chars)
     int types = (hasLetters ? 1 : 0) + (hasNumbers ? 1 : 0) + (hasSpecial ? 1 : 0);
     return types < 2;
   }

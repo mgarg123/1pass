@@ -3,6 +3,8 @@ import '../../../core/utils/clipboard_util.dart';
 import '../generator_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+enum GeneratorMode { characters, words }
+
 class GeneratorScreen extends StatefulWidget {
   final bool isStandalone;
   
@@ -13,12 +15,21 @@ class GeneratorScreen extends StatefulWidget {
 }
 
 class _GeneratorScreenState extends State<GeneratorScreen> {
+  GeneratorMode _mode = GeneratorMode.characters;
+
+  // Characters Mode State
   double _length = 16;
   bool _uppercase = true;
   bool _lowercase = true;
   bool _numbers = true;
   bool _symbols = true;
   
+  // Words Mode State
+  double _wordCount = 5;
+  String _separator = '-';
+  bool _capitalizeWords = false;
+  bool _includeNumber = false;
+
   String _generatedPassword = '';
 
   @override
@@ -29,13 +40,22 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
 
   void _generate() {
     setState(() {
-      _generatedPassword = GeneratorService.generate(
-        length: _length.toInt(),
-        uppercase: _uppercase,
-        lowercase: _lowercase,
-        numbers: _numbers,
-        symbols: _symbols,
-      );
+      if (_mode == GeneratorMode.characters) {
+        _generatedPassword = GeneratorService.generate(
+          length: _length.toInt(),
+          uppercase: _uppercase,
+          lowercase: _lowercase,
+          numbers: _numbers,
+          symbols: _symbols,
+        );
+      } else {
+        _generatedPassword = GeneratorService.generatePassphrase(
+          wordCount: _wordCount.toInt(),
+          separator: _separator,
+          capitalize: _capitalizeWords,
+          includeNumber: _includeNumber,
+        );
+      }
     });
   }
 
@@ -59,6 +79,30 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Center(
+              child: SegmentedButton<GeneratorMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: GeneratorMode.characters,
+                    label: Text('Characters'),
+                    icon: Icon(Icons.password),
+                  ),
+                  ButtonSegment(
+                    value: GeneratorMode.words,
+                    label: Text('Words (Diceware)'),
+                    icon: Icon(Icons.text_fields),
+                  ),
+                ],
+                selected: {_mode},
+                onSelectionChanged: (Set<GeneratorMode> newSelection) {
+                  setState(() {
+                    _mode = newSelection.first;
+                    _generate();
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 24),
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -79,66 +123,17 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
               label: const Text('Regenerate'),
             ),
             const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Length: ${_length.toInt()}'),
-                Expanded(
-                  child: Slider(
-                    value: _length,
-                    min: 8,
-                    max: 64,
-                    divisions: 56,
-                    onChanged: (val) {
-                      setState(() => _length = val);
-                      _generate();
-                    },
-                  ),
+            Expanded(
+              child: SingleChildScrollView(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: _mode == GeneratorMode.characters 
+                      ? _buildCharactersControls()
+                      : _buildWordsControls(),
                 ),
-              ],
-            ),
-            Card(
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: const Text('Uppercase (A-Z)'),
-                    value: _uppercase,
-                    onChanged: (val) {
-                      setState(() => _uppercase = val);
-                      _generate();
-                    },
-                  ),
-                  const Divider(height: 1),
-                  SwitchListTile(
-                    title: const Text('Lowercase (a-z)'),
-                    value: _lowercase,
-                    onChanged: (val) {
-                      setState(() => _lowercase = val);
-                      _generate();
-                    },
-                  ),
-                  const Divider(height: 1),
-                  SwitchListTile(
-                    title: const Text('Numbers (0-9)'),
-                    value: _numbers,
-                    onChanged: (val) {
-                      setState(() => _numbers = val);
-                      _generate();
-                    },
-                  ),
-                  const Divider(height: 1),
-                  SwitchListTile(
-                    title: const Text('Symbols (!@#...)'),
-                    value: _symbols,
-                    onChanged: (val) {
-                      setState(() => _symbols = val);
-                      _generate();
-                    },
-                  ),
-                ],
               ),
             ),
-            const Spacer(),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _copyAndClose,
               child: Text(widget.isStandalone ? 'Copy Password' : 'Use Password'),
@@ -146,6 +141,145 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
           ].animate(interval: 50.ms).fadeIn(duration: 400.ms).slideX(begin: 0.1, end: 0, curve: Curves.easeOut),
         ),
       ),
+    );
+  }
+
+  Widget _buildCharactersControls() {
+    return Column(
+      key: const ValueKey('characters'),
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Length: ${_length.toInt()}'),
+            Expanded(
+              child: Slider(
+                value: _length,
+                min: 8,
+                max: 64,
+                divisions: 56,
+                onChanged: (val) {
+                  setState(() => _length = val);
+                  _generate();
+                },
+              ),
+            ),
+          ],
+        ),
+        Card(
+          child: Column(
+            children: [
+              SwitchListTile(
+                title: const Text('Uppercase (A-Z)'),
+                value: _uppercase,
+                onChanged: (val) {
+                  setState(() => _uppercase = val);
+                  _generate();
+                },
+              ),
+              const Divider(height: 1),
+              SwitchListTile(
+                title: const Text('Lowercase (a-z)'),
+                value: _lowercase,
+                onChanged: (val) {
+                  setState(() => _lowercase = val);
+                  _generate();
+                },
+              ),
+              const Divider(height: 1),
+              SwitchListTile(
+                title: const Text('Numbers (0-9)'),
+                value: _numbers,
+                onChanged: (val) {
+                  setState(() => _numbers = val);
+                  _generate();
+                },
+              ),
+              const Divider(height: 1),
+              SwitchListTile(
+                title: const Text('Symbols (!@#...)'),
+                value: _symbols,
+                onChanged: (val) {
+                  setState(() => _symbols = val);
+                  _generate();
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWordsControls() {
+    return Column(
+      key: const ValueKey('words'),
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Words: ${_wordCount.toInt()}'),
+            Expanded(
+              child: Slider(
+                value: _wordCount,
+                min: 4,
+                max: 10,
+                divisions: 6,
+                onChanged: (val) {
+                  setState(() => _wordCount = val);
+                  _generate();
+                },
+              ),
+            ),
+          ],
+        ),
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                title: const Text('Separator'),
+                trailing: DropdownButton<String>(
+                  value: _separator,
+                  underline: const SizedBox(),
+                  items: const [
+                    DropdownMenuItem(value: '-', child: Text('Hyphen (-)')),
+                    DropdownMenuItem(value: ' ', child: Text('Space ( )')),
+                    DropdownMenuItem(value: '_', child: Text('Underscore (_)')),
+                    DropdownMenuItem(value: '.', child: Text('Period (.)')),
+                    DropdownMenuItem(value: ',', child: Text('Comma (,)')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _separator = val);
+                      _generate();
+                    }
+                  },
+                ),
+              ),
+              const Divider(height: 1),
+              SwitchListTile(
+                title: const Text('Capitalize Words'),
+                subtitle: const Text('e.g. Correct-Horse'),
+                value: _capitalizeWords,
+                onChanged: (val) {
+                  setState(() => _capitalizeWords = val);
+                  _generate();
+                },
+              ),
+              const Divider(height: 1),
+              SwitchListTile(
+                title: const Text('Include a Number'),
+                subtitle: const Text('Randomly appends a number'),
+                value: _includeNumber,
+                onChanged: (val) {
+                  setState(() => _includeNumber = val);
+                  _generate();
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
