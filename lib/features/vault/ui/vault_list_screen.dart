@@ -62,7 +62,7 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            const Text('Vault Secure'),
+            const Text('My Vault', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(width: 12),
             buildSyncIcon(),
           ],
