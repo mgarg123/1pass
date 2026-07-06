@@ -10,6 +10,7 @@ import android.service.autofill.FillRequest
 import android.service.autofill.FillResponse
 import android.service.autofill.SaveCallback
 import android.service.autofill.SaveRequest
+import android.service.autofill.SaveInfo
 import android.util.Log
 import android.view.autofill.AutofillId
 import android.widget.RemoteViews
@@ -74,7 +75,13 @@ class AutofillServiceImpl : AutofillService() {
         autofillIds.addAll(usernameIds)
         autofillIds.addAll(passwordIds)
 
+        val saveInfo = SaveInfo.Builder(
+            SaveInfo.SAVE_DATA_TYPE_USERNAME or SaveInfo.SAVE_DATA_TYPE_PASSWORD,
+            autofillIds.toTypedArray()
+        ).build()
+
         val response = FillResponse.Builder()
+            .setSaveInfo(saveInfo)
             .setAuthentication(autofillIds.toTypedArray(), pendingIntent.intentSender, presentation)
             .build()
             
@@ -82,7 +89,81 @@ class AutofillServiceImpl : AutofillService() {
     }
 
     override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {
+        val context = request.fillContexts.last()
+        val structure = context.structure
+        
+        var targetDomainOrPackage = structure.activityComponent.packageName ?: ""
+        val webDomain = getWebDomain(structure)
+        if (webDomain != null) {
+            targetDomainOrPackage = webDomain
+        }
+
+        val usernameIds = ArrayList<AutofillId>()
+        val passwordIds = ArrayList<AutofillId>()
+        traverseStructure(structure, usernameIds, passwordIds)
+
+        var username = ""
+        var password = ""
+
+        // Extract submitted values
+        val dataset = request.fillContexts.last().structure
+        extractValues(dataset, usernameIds, passwordIds, { u -> username = u }, { p -> password = p })
+
+        val intent = Intent(this, SaveAuthActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            putExtra("target_domain_or_package", targetDomainOrPackage)
+            putExtra("username", username)
+            putExtra("password", password)
+        }
+        
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start SaveAuthActivity", e)
+        }
+        
         callback.onSuccess()
+    }
+
+    private fun extractValues(
+        structure: AssistStructure,
+        usernameIds: ArrayList<AutofillId>,
+        passwordIds: ArrayList<AutofillId>,
+        onUsername: (String) -> Unit,
+        onPassword: (String) -> Unit
+    ) {
+        val nodes = structure.windowNodeCount
+        for (i in 0 until nodes) {
+            val windowNode = structure.getWindowNodeAt(i)
+            val viewNode = windowNode.rootViewNode
+            if (viewNode != null) {
+                extractValuesFromNode(viewNode, usernameIds, passwordIds, onUsername, onPassword)
+            }
+        }
+    }
+
+    private fun extractValuesFromNode(
+        viewNode: AssistStructure.ViewNode,
+        usernameIds: ArrayList<AutofillId>,
+        passwordIds: ArrayList<AutofillId>,
+        onUsername: (String) -> Unit,
+        onPassword: (String) -> Unit
+    ) {
+        val id = viewNode.autofillId
+        val text = viewNode.text?.toString() ?: ""
+        
+        if (id != null && text.isNotEmpty()) {
+            if (usernameIds.contains(id)) {
+                onUsername(text)
+            }
+            if (passwordIds.contains(id)) {
+                onPassword(text)
+            }
+        }
+        
+        for (i in 0 until viewNode.childCount) {
+            extractValuesFromNode(viewNode.getChildAt(i), usernameIds, passwordIds, onUsername, onPassword)
+        }
     }
 
     private fun traverseStructure(structure: AssistStructure, usernameIds: ArrayList<AutofillId>, passwordIds: ArrayList<AutofillId>) {
@@ -125,9 +206,20 @@ class AutofillServiceImpl : AutofillService() {
             val inputType = viewNode.inputType
             
             if (htmlInfo != null) {
-                val type = htmlInfo.attributes?.find { it.first == "type" }?.second ?: ""
-                val name = htmlInfo.attributes?.find { it.first == "name" }?.second ?: ""
-                val id = htmlInfo.attributes?.find { it.first == "id" }?.second ?: ""
+                var type = ""
+                var name = ""
+                var id = ""
+                val attrs = htmlInfo.attributes
+                if (attrs != null) {
+                    for (i in 0 until attrs.size) {
+                        val attr = attrs[i]
+                        val first = attr.first as? String ?: continue
+                        val second = attr.second as? String ?: ""
+                        if (first == "type") type = second
+                        if (first == "name") name = second
+                        if (first == "id") id = second
+                    }
+                }
                 
                 if (type.contains("password", true) || name.contains("password", true) || id.contains("password", true)) {
                     isPassword = true
