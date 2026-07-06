@@ -9,6 +9,7 @@ import '../../../core/crypto/crypto_service.dart';
 import '../../../core/storage/hive_setup.dart';
 import '../../../core/storage/vault_repository.dart';
 import '../../vault/models/vault_entry.dart';
+import '../../vault/models/entry_type.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../vault/providers/vault_provider.dart';
 import '../../../core/sync/sync_provider.dart';
@@ -101,13 +102,20 @@ class BackupService {
         final decryptedBytes = await cryptoService.decrypt(entryBlob, backupKey);
         final decryptedJson = jsonDecode(utf8.decode(decryptedBytes)) as Map<String, dynamic>;
 
+        final typeStr = decryptedJson['type'] as String?;
+        final entryType = typeStr != null 
+            ? EntryType.values.firstWhere((e) => e.name == typeStr, orElse: () => EntryType.login) 
+            : EntryType.login;
+
         importedEntries.add(VaultEntry(
           id: entryData['id'] as String,
+          type: entryType,
           title: (decryptedJson['title'] as String?) ?? (entryData['title'] as String),
           username: decryptedJson['username'] as String,
           password: decryptedJson['password'] as String,
           url: decryptedJson['url'] as String?,
           notes: decryptedJson['notes'] as String?,
+          totpSecret: decryptedJson['totpSecret'] as String?,
           tags: decryptedJson['tags'] != null 
               ? List<String>.from(decryptedJson['tags']) 
               : List<String>.from(entryData['tags'] ?? []),

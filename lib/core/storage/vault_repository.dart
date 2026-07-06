@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import '../../features/vault/models/vault_entry.dart';
+import '../../features/vault/models/entry_type.dart';
 import '../crypto/crypto_models.dart';
 import '../crypto/crypto_service.dart';
 import 'hive_setup.dart';
@@ -31,6 +32,14 @@ class HiveVaultRepository implements VaultRepository {
 
   HiveVaultRepository(this._cryptoService);
 
+  EntryType _parseEntryType(String? typeStr) {
+    if (typeStr == null) return EntryType.login;
+    return EntryType.values.firstWhere(
+      (e) => e.name == typeStr,
+      orElse: () => EntryType.login,
+    );
+  }
+
   @override
   Future<List<VaultEntry>> getAllEntries(EncryptionKey key) async {
     final box = HiveSetup.vaultBox;
@@ -47,11 +56,13 @@ class HiveVaultRepository implements VaultRepository {
 
       entries.add(VaultEntry(
         id: data['id'] as String,
+        type: _parseEntryType(decryptedJson['type'] as String?),
         title: (decryptedJson['title'] as String?) ?? (data['title'] as String),
         username: decryptedJson['username'] as String,
         password: decryptedJson['password'] as String,
         url: decryptedJson['url'] as String?,
         notes: decryptedJson['notes'] as String?,
+        totpSecret: decryptedJson['totpSecret'] as String?,
         tags: decryptedJson['tags'] != null 
             ? List<String>.from(decryptedJson['tags']) 
             : List<String>.from(data['tags'] ?? []),
@@ -75,6 +86,7 @@ class HiveVaultRepository implements VaultRepository {
 
     final data = {
       'id': entry.id,
+      'type': entry.type.name,
       'title': entry.title,
       'tags': entry.tags,
       'createdAt': entry.createdAt.toIso8601String(),

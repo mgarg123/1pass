@@ -4,6 +4,10 @@
 	<dict>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
+		<key>NSCameraUsageDescription</key>
+		<string>1Pass needs camera access to scan QR codes for 2FA setup.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>1Pass needs photo library access to upload QR code images for 2FA setup.</string>
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
