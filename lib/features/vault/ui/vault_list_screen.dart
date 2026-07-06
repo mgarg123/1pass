@@ -22,6 +22,7 @@ class VaultListScreen extends ConsumerStatefulWidget {
 class _VaultListScreenState extends ConsumerState<VaultListScreen> {
   String _searchQuery = '';
   String? _selectedTag;
+  bool _isSearching = false;
 
   void _copyToClipboard(String text, String label) {
     ClipboardUtil.copyTemporary(text);
@@ -61,15 +62,48 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            const Text('My Vault', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(width: 12),
-            buildSyncIcon(),
-          ],
-        ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.1, end: 0),
+        title: _isSearching
+            ? SizedBox(
+                height: 40,
+                child: TextField(
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    hintText: 'Search vault...',
+                    hintStyle: const TextStyle(color: Colors.white54, fontSize: 16),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
+                ),
+              ).animate().fadeIn(duration: 200.ms)
+            : Row(
+                children: [
+                  const Text('My Vault', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 12),
+                  buildSyncIcon(),
+                ],
+              ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.1, end: 0),
         actions: [
-          if (syncState == SyncState.failed)
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                if (_isSearching) {
+                  _isSearching = false;
+                  _searchQuery = '';
+                } else {
+                  _isSearching = true;
+                }
+              });
+            },
+          ),
+          if (syncState == SyncState.failed && !_isSearching)
             IconButton(
               icon: const Icon(Icons.sync),
               tooltip: 'Retry Sync',
@@ -77,37 +111,29 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                 ref.read(syncProvider.notifier).triggerSync();
               },
             ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.lock_outline),
-            tooltip: 'Lock Vault',
-            onPressed: () {
-              ref.read(authProvider.notifier).lockVault();
-            },
-          )
+          if (!_isSearching)
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                );
+              },
+            ),
+          if (!_isSearching)
+            IconButton(
+              icon: const Icon(Icons.lock_outline),
+              tooltip: 'Lock Vault',
+              onPressed: () {
+                ref.read(authProvider.notifier).lockVault();
+              },
+            )
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(120),
+          preferredSize: const Size.fromHeight(60),
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search title or username...',
-                    prefixIcon: const Icon(Icons.search),
-                  ),
-                  onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
-                ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideY(begin: 0.2, end: 0),
-              ),
               asyncEntries.maybeWhen(
                 data: (entries) {
                   final allTags = entries.expand((e) => e.tags).toSet().toList()..sort();
@@ -180,8 +206,15 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
           }
 
           final filtered = entries.where((e) {
-            final matchesSearch = e.title.toLowerCase().contains(_searchQuery) ||
-                e.username.toLowerCase().contains(_searchQuery);
+            final q = _searchQuery;
+            final matchesSearch = q.isEmpty ||
+                e.title.toLowerCase().contains(q) ||
+                e.username.toLowerCase().contains(q) ||
+                (e.bankName?.toLowerCase().contains(q) ?? false) ||
+                (e.cardholderName?.toLowerCase().contains(q) ?? false) ||
+                (e.cardNumber?.replaceAll(RegExp(r'\s+'), '').contains(q) ?? false) ||
+                (e.notes?.toLowerCase().contains(q) ?? false) ||
+                e.tags.any((t) => t.toLowerCase().contains(q));
             final matchesTag = _selectedTag == null || e.tags.contains(_selectedTag);
             return matchesSearch && matchesTag;
           }).toList();
@@ -289,7 +322,7 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+floatingActionButton: FloatingActionButton(
         onPressed: () {
           showModalBottomSheet(
             context: context,
