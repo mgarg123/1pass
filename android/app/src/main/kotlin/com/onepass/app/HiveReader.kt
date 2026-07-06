@@ -1,4 +1,4 @@
-package com.example.one_pass
+package com.onepass.app
 
 import java.io.File
 import java.io.RandomAccessFile

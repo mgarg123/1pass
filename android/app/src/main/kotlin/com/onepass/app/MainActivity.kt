@@ -1,4 +1,4 @@
-package com.example.one_pass
+package com.onepass.app
 
 import android.content.Intent
 import android.os.Build
