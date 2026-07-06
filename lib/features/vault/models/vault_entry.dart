@@ -12,6 +12,7 @@ class VaultEntry extends Equatable {
   final String? notes;
   final String? totpSecret;
   final List<String> tags;
+  final List<String> ignoredWarnings;
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
@@ -26,6 +27,7 @@ class VaultEntry extends Equatable {
     this.notes,
     this.totpSecret,
     required this.tags,
+    this.ignoredWarnings = const [],
     required this.createdAt,
     required this.updatedAt,
     this.isDeleted = false,
@@ -41,6 +43,7 @@ class VaultEntry extends Equatable {
     String? notes,
     String? totpSecret,
     List<String>? tags,
+    List<String>? ignoredWarnings,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
@@ -55,6 +58,7 @@ class VaultEntry extends Equatable {
       notes: notes ?? this.notes,
       totpSecret: totpSecret ?? this.totpSecret,
       tags: tags ?? this.tags,
+      ignoredWarnings: ignoredWarnings ?? this.ignoredWarnings,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
@@ -72,6 +76,7 @@ class VaultEntry extends Equatable {
       'notes': notes,
       'totpSecret': totpSecret,
       'tags': tags,
+      'ignoredWarnings': ignoredWarnings,
     });
   }
 
@@ -86,6 +91,7 @@ class VaultEntry extends Equatable {
         notes,
         totpSecret,
         tags,
+        ignoredWarnings,
         createdAt,
         updatedAt,
         isDeleted,
