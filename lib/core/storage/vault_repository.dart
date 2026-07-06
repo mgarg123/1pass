@@ -63,6 +63,12 @@ class HiveVaultRepository implements VaultRepository {
         url: decryptedJson['url'] as String?,
         notes: decryptedJson['notes'] as String?,
         totpSecret: decryptedJson['totpSecret'] as String?,
+        cardNumber: decryptedJson['cardNumber'] as String?,
+        cardholderName: decryptedJson['cardholderName'] as String?,
+        expiryDate: decryptedJson['expiryDate'] as String?,
+        cvv: decryptedJson['cvv'] as String?,
+        pin: decryptedJson['pin'] as String?,
+        bankName: decryptedJson['bankName'] as String?,
         tags: decryptedJson['tags'] != null 
             ? List<String>.from(decryptedJson['tags']) 
             : List<String>.from(data['tags'] ?? []),

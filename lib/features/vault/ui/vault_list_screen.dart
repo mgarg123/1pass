@@ -8,6 +8,7 @@ import '../../../core/sync/sync_provider.dart';
 import '../../../core/utils/clipboard_util.dart';
 import 'add_edit_entry_screen.dart';
 import 'authenticator/add_authenticator_screen.dart';
+import 'credit_card/add_credit_card_screen.dart';
 import '../utils/totp_util.dart';
 import '../../settings/ui/settings_screen.dart';
 
@@ -218,7 +219,12 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                     Navigator.push(
                       context,
                       PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) => AddEditEntryScreen(entry: entry),
+                        pageBuilder: (context, animation, secondaryAnimation) {
+                          if (entry.type == EntryType.creditCard) {
+                            return AddCreditCardScreen(entry: entry);
+                          }
+                          return AddEditEntryScreen(entry: entry);
+                        },
                         transitionsBuilder: (context, animation, secondaryAnimation, child) {
                           return FadeTransition(opacity: animation, child: child);
                         },
@@ -239,14 +245,26 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                         child: Center(
                           child: entry.type == EntryType.authenticator 
                               ? Icon(Icons.access_time, color: primaryColor)
-                              : Text(
-                                  entry.title.isNotEmpty ? entry.title[0].toUpperCase() : '?',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 18),
-                                ),
+                              : entry.type == EntryType.creditCard
+                                  ? Icon(Icons.credit_card, color: primaryColor)
+                                  : Text(
+                                      entry.title.isNotEmpty ? entry.title[0].toUpperCase() : '?',
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 18),
+                                    ),
                         ),
                       ),
-                      title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      subtitle: Text(entry.type == EntryType.authenticator ? 'Authenticator' : entry.username, style: const TextStyle(color: Colors.white54)),
+                      title: Text(
+                        entry.type == EntryType.creditCard && entry.bankName != null && entry.bankName!.isNotEmpty
+                            ? '${entry.bankName} - ${entry.title}'
+                            : entry.title,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      subtitle: Text(
+                        entry.type == EntryType.authenticator ? 'Authenticator' 
+                        : entry.type == EntryType.creditCard ? (entry.cardNumber != null && entry.cardNumber!.replaceAll(RegExp(r'\s+'), '').length >= 4 ? '•••• ${entry.cardNumber!.replaceAll(RegExp(r'\s+'), '').substring(entry.cardNumber!.replaceAll(RegExp(r'\s+'), '').length - 4)}' : 'Credit Card')
+                        : entry.username, 
+                        style: const TextStyle(color: Colors.white54)
+                      ),
                       trailing: entry.type == EntryType.login 
                           ? IconButton(
                               icon: const Icon(Icons.copy, color: Colors.white38),
@@ -306,9 +324,14 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.credit_card),
-                  title: const Text('Credit Card (Coming Soon)'),
-                  enabled: false,
-                  onTap: () {},
+                  title: const Text('Credit Card'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AddCreditCardScreen()),
+                    );
+                  },
                 ),
                 const SizedBox(height: 32),
               ],
