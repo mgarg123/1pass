@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 import '../providers/auto_lock_provider.dart';
 import '../providers/backup_provider.dart';
 import '../../auth/providers/biometric_provider.dart';
@@ -66,6 +67,33 @@ class SettingsScreen extends ConsumerWidget {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text(e.toString())),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ],
+                if (Platform.isAndroid) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.keyboard_outlined),
+                    title: const Text('Enable Autofill'),
+                    subtitle: const Text('Suggest passwords in other apps'),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () async {
+                      if (!ref.read(biometricProvider).isEnabled) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please enable Biometric Unlock first')),
+                        );
+                        return;
+                      }
+                      const channel = MethodChannel('com.example.onepass/autofill');
+                      try {
+                        await channel.invokeMethod('requestSetAutofillService');
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to open Autofill settings: $e')),
                           );
                         }
                       }
