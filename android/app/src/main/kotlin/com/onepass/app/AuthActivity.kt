@@ -1,4 +1,4 @@
-package com.example.one_pass
+package com.onepass.app
 
 import android.app.Activity
 import android.app.assist.AssistStructure
