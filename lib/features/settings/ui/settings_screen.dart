@@ -11,6 +11,8 @@ import '../providers/breach_settings_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'change_master_password_screen.dart';
 import 'import_backup_screen.dart';
+import '../providers/health_settings_provider.dart';
+import '../../vault/ui/password_health_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -80,6 +82,16 @@ class SettingsScreen extends ConsumerWidget {
                     ref.read(breachSettingsProvider.notifier).setEnabled(val);
                   },
                 ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  secondary: const Icon(Icons.history_toggle_off),
+                  title: const Text('Flag Old Passwords'),
+                  subtitle: const Text('Warn about passwords older than 1 year'),
+                  value: ref.watch(flagOldPasswordsProvider),
+                  onChanged: (val) {
+                    ref.read(flagOldPasswordsProvider.notifier).setEnabled(val);
+                  },
+                ),
               ],
             ),
           ).animate().fadeIn(delay: 50.ms).slideY(begin: 0.1, end: 0),
@@ -87,6 +99,18 @@ class SettingsScreen extends ConsumerWidget {
             margin: const EdgeInsets.only(bottom: 16),
             child: Column(
               children: [
+                ListTile(
+                  leading: const Icon(Icons.health_and_safety, color: Colors.green),
+                  title: const Text('Password Health Dashboard'),
+                  subtitle: const Text('Check for weak, reused, or breached passwords'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const PasswordHealthScreen()),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.password),
                   title: const Text('Change Master Password'),

@@ -66,6 +66,9 @@ class HiveVaultRepository implements VaultRepository {
         tags: decryptedJson['tags'] != null 
             ? List<String>.from(decryptedJson['tags']) 
             : List<String>.from(data['tags'] ?? []),
+        ignoredWarnings: decryptedJson['ignoredWarnings'] != null
+            ? List<String>.from(decryptedJson['ignoredWarnings'])
+            : [],
         createdAt: DateTime.parse(data['createdAt'] as String),
         updatedAt: DateTime.parse(data['updatedAt'] as String),
         isDeleted: data['isDeleted'] == true,
