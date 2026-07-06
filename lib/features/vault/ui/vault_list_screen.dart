@@ -10,6 +10,7 @@ import '../../../core/utils/clipboard_util.dart';
 import 'add_edit_entry_screen.dart';
 import 'authenticator/add_authenticator_screen.dart';
 import 'credit_card/add_credit_card_screen.dart';
+import 'widgets/entry_avatar_widget.dart';
 import 'widgets/totp_live_subtitle.dart';
 import '../utils/totp_util.dart';
 import '../../settings/ui/settings_screen.dart';
@@ -24,6 +25,7 @@ class VaultListScreen extends ConsumerStatefulWidget {
 class _VaultListScreenState extends ConsumerState<VaultListScreen> {
   String _searchQuery = '';
   String? _selectedTag;
+  bool _showTags = false;
   bool _isSearching = false;
 
   void _copyToClipboard(String text, String label) {
@@ -38,6 +40,8 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
     ClipboardUtil.cancelTimer();
     super.dispose();
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -127,6 +131,15 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
             ),
           if (!_isSearching)
             IconButton(
+              icon: Icon(_showTags ? Icons.filter_alt : Icons.filter_alt_outlined, 
+                color: _selectedTag != null ? Theme.of(context).primaryColor : null),
+              tooltip: 'Filter by Tag',
+              onPressed: () {
+                setState(() => _showTags = !_showTags);
+              },
+            ),
+          if (!_isSearching)
+            IconButton(
               icon: const Icon(Icons.lock_outline),
               tooltip: 'Lock Vault',
               onPressed: () {
@@ -134,72 +147,29 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
               },
             )
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(104),
-          child: Column(
-            children: [
-              const TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                tabs: [
-                  Tab(text: 'All'),
-                  Tab(text: 'Logins'),
-                  Tab(text: 'Cards'),
-                  Tab(text: '2FA'),
-                ],
-              ),
-              const Divider(height: 1, color: Colors.white12),
-              asyncEntries.maybeWhen(
-                data: (entries) {
-                  final allTags = entries.expand((e) => e.tags).toSet().toList()..sort();
-                  if (allTags.isEmpty) return const SizedBox(height: 16);
-                  
-                  return Container(
-                    height: 56,
-                    padding: const EdgeInsets.only(top: 8, bottom: 8),
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: allTags.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index == 0) {
-                          return const Padding(
-                            padding: EdgeInsets.only(right: 12.0),
-                            child: Icon(Icons.local_offer_outlined, color: Colors.white38, size: 20),
-                          );
-                        }
-                        final tag = allTags[index - 1];
-                        final isSelected = _selectedTag == tag;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: FilterChip(
-                            label: Text(tag, style: TextStyle(color: isSelected ? Colors.white : Colors.white70)),
-                            selected: isSelected,
-                            showCheckmark: false,
-                            selectedColor: primaryColor.withValues(alpha: 0.5),
-                            backgroundColor: Theme.of(context).cardColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              side: BorderSide(color: isSelected ? primaryColor : Colors.white12),
-                            ),
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedTag = selected ? tag : null;
-                              });
-                            },
-                          ),
-                        ).animate().fadeIn(delay: (200 + index * 50).ms).slideX(begin: 0.2, end: 0);
-                      },
-                    ),
-                  );
-                },
-                orElse: () => const SizedBox(height: 16),
-              )
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(48),
+          child: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: [
+              Tab(text: 'All'),
+              Tab(text: 'Logins'),
+              Tab(text: 'Cards'),
+              Tab(text: '2FA'),
             ],
           ),
         ),
       ),
-      body: asyncEntries.when(
+      body: Column(
+        children: [
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: _showTags ? _buildTagsRow(asyncEntries, primaryColor) : const SizedBox(width: double.infinity, height: 0),
+          ),
+          Expanded(
+            child: asyncEntries.when(
         loading: () => Center(child: CircularProgressIndicator(color: primaryColor)),
         error: (err, st) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.redAccent))),
         data: (entries) {
@@ -235,6 +205,9 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
             ],
           );
         },
+      ),
+      ),
+      ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -329,14 +302,16 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 100), // Space for FAB
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100), // Proper horizontal padding and FAB space
       itemCount: filtered.length,
       itemBuilder: (context, index) {
         final entry = filtered[index];
-        final entryColor = entry.type.color;
         return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          elevation: 2,
           child: InkWell(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
             onTap: () {
               Navigator.push(
                 context,
@@ -353,28 +328,9 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                 ),
               );
             },
-            child: Padding(
-              padding: const EdgeInsets.all(4.0),
-              child: ListTile(
-                leading: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: entryColor.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: entryColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Center(
-                    child: entry.type == EntryType.authenticator 
-                        ? Icon(Icons.access_time, color: entryColor)
-                        : entry.type == EntryType.creditCard
-                            ? Icon(Icons.credit_card, color: entryColor)
-                            : Text(
-                                entry.title.isNotEmpty ? entry.title[0].toUpperCase() : '?',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: entryColor, fontSize: 18),
-                              ),
-                  ),
-                ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: EntryAvatarWidget(entry: entry),
                 title: Text(
                   entry.type == EntryType.creditCard && entry.bankName != null && entry.bankName!.isNotEmpty
                       ? '${entry.bankName} - ${entry.title}'
@@ -405,10 +361,64 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                           )
                         : const Icon(Icons.chevron_right, color: Colors.white38),
               ),
-            ),
           ),
         ).animate().fadeIn(duration: 400.ms, delay: (index * 50).ms).slideX(begin: 0.1, end: 0, curve: Curves.easeOutQuad);
       },
+    );
+  }
+
+  Widget _buildTagsRow(AsyncValue<List<VaultEntry>> asyncEntries, Color primaryColor) {
+    return asyncEntries.maybeWhen(
+      data: (entries) {
+        final allTags = entries.expand((e) => e.tags).toSet().toList()..sort();
+        if (allTags.isEmpty) return const SizedBox.shrink();
+        
+        return Container(
+          height: 52,
+          padding: const EdgeInsets.only(top: 8, bottom: 8),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.white12, width: 1)),
+            color: Colors.black12,
+          ),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: allTags.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return const Padding(
+                  padding: EdgeInsets.only(right: 12.0),
+                  child: Icon(Icons.local_offer_outlined, color: Colors.white38, size: 18),
+                );
+              }
+              final tag = allTags[index - 1];
+              final isSelected = _selectedTag == tag;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: FilterChip(
+                  label: Text(tag, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.white70)),
+                  selected: isSelected,
+                  showCheckmark: false,
+                  selectedColor: primaryColor.withValues(alpha: 0.5),
+                  backgroundColor: Theme.of(context).cardColor,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: isSelected ? primaryColor : Colors.white12),
+                  ),
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedTag = selected ? tag : null;
+                    });
+                  },
+                ),
+              );
+            },
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
     );
   }
 }
