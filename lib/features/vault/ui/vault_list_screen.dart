@@ -8,6 +8,7 @@ import '../../../core/sync/sync_provider.dart';
 import '../../../core/utils/clipboard_util.dart';
 import 'add_edit_entry_screen.dart';
 import 'authenticator/add_authenticator_screen.dart';
+import '../utils/totp_util.dart';
 import '../../settings/ui/settings_screen.dart';
 
 class VaultListScreen extends ConsumerStatefulWidget {
@@ -252,7 +253,16 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                               tooltip: 'Copy Password',
                               onPressed: () => _copyToClipboard(entry.password, 'Password'),
                             )
-                          : const Icon(Icons.chevron_right, color: Colors.white38),
+                          : entry.type == EntryType.authenticator && entry.totpSecret != null
+                              ? IconButton(
+                                  icon: const Icon(Icons.copy, color: Colors.white38),
+                                  tooltip: 'Copy 2FA Code',
+                                  onPressed: () {
+                                    final code = TotpUtil.generateCode(entry.totpSecret!);
+                                    _copyToClipboard(code, '2FA Code');
+                                  },
+                                )
+                              : const Icon(Icons.chevron_right, color: Colors.white38),
                     ),
                   ),
                 ),
