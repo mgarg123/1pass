@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/vault_entry.dart';
 import '../providers/vault_provider.dart';
+import '../providers/breach_check_provider.dart';
 import '../../generator/ui/generator_screen.dart';
 
 class AddEditEntryScreen extends ConsumerStatefulWidget {
@@ -52,6 +53,12 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
     } else {
       _passwordStrength = 'Strong';
     }
+    
+    // Trigger breach check
+    Future.microtask(() {
+      ref.read(breachCheckProvider.notifier).checkPassword(value);
+    });
+    
     setState(() {});
   }
 
@@ -142,6 +149,13 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final breachState = ref.watch(breachCheckProvider);
+    
+    String displayStrength = _passwordStrength;
+    if (breachState.breachCount > 0 && _passwordController.text.isNotEmpty) {
+      displayStrength = 'Compromised';
+    }
+    
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.entry == null ? 'Add Entry' : 'Edit Entry'),
@@ -220,10 +234,10 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
                           Padding(
                             padding: const EdgeInsets.only(left: 12.0),
                             child: Text(
-                              _passwordStrength,
+                              displayStrength,
                               style: TextStyle(
-                                color: _passwordStrength == 'Weak' ? Colors.redAccent
-                                    : _passwordStrength == 'Medium' ? Colors.orangeAccent : Colors.greenAccent,
+                                color: (displayStrength == 'Weak' || displayStrength == 'Compromised') ? Colors.redAccent
+                                    : displayStrength == 'Medium' ? Colors.orangeAccent : Colors.greenAccent,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -235,6 +249,27 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
                           )
                         ],
                       ),
+                      if (breachState.isLoading)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8.0, left: 12.0),
+                          child: Text('Checking breaches...', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        )
+                      else if (breachState.breachCount > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0, left: 12.0),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 16),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  'Compromised! Found in ${breachState.breachCount} data breaches.',
+                                  style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ).animate().fadeIn().slideY(begin: 0.2, end: 0),
+                        ),
                     ],
                   ),
                 ),

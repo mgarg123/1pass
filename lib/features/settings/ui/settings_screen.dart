@@ -7,6 +7,7 @@ import '../providers/auto_lock_provider.dart';
 import '../providers/backup_provider.dart';
 import '../../auth/providers/biometric_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../providers/breach_settings_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'change_master_password_screen.dart';
 import 'import_backup_screen.dart';
@@ -69,6 +70,16 @@ class SettingsScreen extends ConsumerWidget {
                     },
                   ),
                 ],
+                const Divider(height: 1),
+                SwitchListTile(
+                  secondary: const Icon(Icons.security),
+                  title: const Text('Check Password Breaches'),
+                  subtitle: const Text('Anonymously check if passwords are in known breaches (HIBP)'),
+                  value: ref.watch(breachSettingsProvider),
+                  onChanged: (val) {
+                    ref.read(breachSettingsProvider.notifier).setEnabled(val);
+                  },
+                ),
               ],
             ),
           ).animate().fadeIn(delay: 50.ms).slideY(begin: 0.1, end: 0),
