@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../../../core/utils/clipboard_util.dart';
 import '../generator_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -41,7 +41,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
 
   void _copyAndClose() {
     if (widget.isStandalone) {
-      Clipboard.setData(ClipboardData(text: _generatedPassword));
+      ClipboardUtil.copyTemporary(_generatedPassword);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password copied to clipboard')),
       );

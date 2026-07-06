@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/vault_entry.dart';
+import '../models/entry_type.dart';
 import '../providers/vault_provider.dart';
 import '../providers/breach_check_provider.dart';
 import '../../generator/ui/generator_screen.dart';
+import 'widgets/totp_display.dart';
+import '../utils/totp_util.dart';
 
 class AddEditEntryScreen extends ConsumerStatefulWidget {
   final VaultEntry? entry;
@@ -24,8 +27,10 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
   late TextEditingController _urlController;
   late TextEditingController _notesController;
   late TextEditingController _tagsController;
+  late TextEditingController _totpSecretController;
 
   bool _obscurePassword = true;
+  bool _obscureTotpSecret = true;
   String _passwordStrength = '';
   bool _isSaving = false;
   bool _isDeleting = false;
@@ -39,6 +44,7 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
     _urlController = TextEditingController(text: widget.entry?.url ?? '');
     _notesController = TextEditingController(text: widget.entry?.notes ?? '');
     _tagsController = TextEditingController(text: widget.entry?.tags.join(', ') ?? '');
+    _totpSecretController = TextEditingController(text: widget.entry?.totpSecret ?? '');
     
     _evaluateStrength(_passwordController.text);
   }
@@ -84,6 +90,17 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
         .where((e) => e.isNotEmpty)
         .toList();
 
+    String? extractedTotpSecret;
+    if (_totpSecretController.text.isNotEmpty) {
+      final parseResult = TotpUtil.parse(_totpSecretController.text);
+      extractedTotpSecret = parseResult.secret;
+      if (!TotpUtil.isValidBase32(extractedTotpSecret)) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid TOTP Secret. It must be valid Base32 or an otpauth:// URI.')));
+        return;
+      }
+    }
+
     final now = DateTime.now().toUtc();
     DateTime newUpdatedAt = now;
     if (widget.entry != null && !newUpdatedAt.isAfter(widget.entry!.updatedAt)) {
@@ -92,11 +109,13 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
 
     final newEntry = VaultEntry(
       id: widget.entry?.id ?? const Uuid().v4(),
+      type: widget.entry?.type ?? EntryType.login,
       title: _titleController.text,
       username: _usernameController.text,
       password: _passwordController.text,
       url: _urlController.text.isEmpty ? null : _urlController.text,
       notes: _notesController.text.isEmpty ? null : _notesController.text,
+      totpSecret: extractedTotpSecret,
       tags: tags,
       createdAt: widget.entry?.createdAt ?? now,
       updatedAt: newUpdatedAt,
@@ -188,6 +207,8 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (widget.entry?.totpSecret != null)
+                TotpDisplay(secret: widget.entry!.totpSecret!),
               Card(
                 margin: const EdgeInsets.only(bottom: 24),
                 child: Padding(
@@ -203,91 +224,113 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
                         ),
                         validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                       ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _usernameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Username / Email *',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                        validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: _obscurePassword,
-                        onChanged: _evaluateStrength,
-                        decoration: InputDecoration(
-                          labelText: 'Password *',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      if (widget.entry?.type != EntryType.authenticator) ...[
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _usernameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Username / Email *',
+                            prefixIcon: Icon(Icons.person_outline),
                           ),
+                          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                         ),
-                        validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(left: 12.0),
-                            child: Text(
-                              displayStrength,
-                              style: TextStyle(
-                                color: (displayStrength == 'Weak' || displayStrength == 'Compromised') ? Colors.redAccent
-                                    : displayStrength == 'Medium' ? Colors.orangeAccent : Colors.greenAccent,
-                                fontWeight: FontWeight.bold,
-                              ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          onChanged: _evaluateStrength,
+                          decoration: InputDecoration(
+                            labelText: 'Password *',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                             ),
                           ),
-                          TextButton.icon(
-                            onPressed: _openGenerator,
-                            icon: const Icon(Icons.generating_tokens),
-                            label: const Text('Generate'),
-                          )
-                        ],
-                      ),
-                      if (breachState.isLoading)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8.0, left: 12.0),
-                          child: Text('Checking breaches...', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                        )
-                      else if (breachState.breachCount > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0, left: 12.0),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 16),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  'Compromised! Found in ${breachState.breachCount} data breaches.',
-                                  style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      if (widget.entry?.type != EntryType.authenticator) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(left: 12.0),
+                              child: Text(
+                                displayStrength,
+                                style: TextStyle(
+                                  color: (displayStrength == 'Weak' || displayStrength == 'Compromised') ? Colors.redAccent
+                                      : displayStrength == 'Medium' ? Colors.orangeAccent : Colors.greenAccent,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ],
-                          ).animate().fadeIn().slideY(begin: 0.2, end: 0),
+                            ),
+                            TextButton.icon(
+                              onPressed: _openGenerator,
+                              icon: const Icon(Icons.generating_tokens),
+                              label: const Text('Generate'),
+                            )
+                          ],
                         ),
+                        if (breachState.isLoading)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8.0, left: 12.0),
+                            child: Text('Checking breaches...', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          )
+                        else if (breachState.breachCount > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0, left: 12.0),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 16),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'Compromised! Found in ${breachState.breachCount} data breaches.',
+                                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ),
+                              ],
+                            ).animate().fadeIn().slideY(begin: 0.2, end: 0),
+                          ),
+                      ] else ...[
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _totpSecretController,
+                          obscureText: _obscureTotpSecret,
+                          decoration: InputDecoration(
+                            labelText: 'Authenticator Key (Secret) *',
+                            prefixIcon: const Icon(Icons.vpn_key),
+                            suffixIcon: IconButton(
+                              icon: Icon(_obscureTotpSecret ? Icons.visibility : Icons.visibility_off),
+                              onPressed: () => setState(() => _obscureTotpSecret = !_obscureTotpSecret),
+                            ),
+                          ),
+                          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
               Card(
+                margin: EdgeInsets.zero,
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      TextFormField(
-                        controller: _urlController,
-                        decoration: const InputDecoration(
-                          labelText: 'URL (optional)',
-                          prefixIcon: Icon(Icons.link),
+                      if (widget.entry?.type != EntryType.authenticator) ...[
+                        TextFormField(
+                          controller: _urlController,
+                          decoration: const InputDecoration(
+                            labelText: 'URL (optional)',
+                            prefixIcon: Icon(Icons.link),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
+                      ],
                       TextFormField(
                         controller: _tagsController,
                         decoration: const InputDecoration(
@@ -305,6 +348,21 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
                           prefixIcon: Icon(Icons.notes),
                         ),
                       ),
+                      if (widget.entry?.type != EntryType.authenticator) ...[
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _totpSecretController,
+                          obscureText: _obscureTotpSecret,
+                          decoration: InputDecoration(
+                            labelText: 'Authenticator Key (TOTP Secret) (optional)',
+                            prefixIcon: const Icon(Icons.access_time),
+                            suffixIcon: IconButton(
+                              icon: Icon(_obscureTotpSecret ? Icons.visibility : Icons.visibility_off),
+                              onPressed: () => setState(() => _obscureTotpSecret = !_obscureTotpSecret),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

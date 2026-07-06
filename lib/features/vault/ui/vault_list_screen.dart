@@ -1,12 +1,13 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/vault_provider.dart';
+import '../models/entry_type.dart';
 import '../../../core/sync/sync_provider.dart';
+import '../../../core/utils/clipboard_util.dart';
 import 'add_edit_entry_screen.dart';
+import 'authenticator/add_authenticator_screen.dart';
 import '../../settings/ui/settings_screen.dart';
 
 class VaultListScreen extends ConsumerStatefulWidget {
@@ -19,23 +20,17 @@ class VaultListScreen extends ConsumerStatefulWidget {
 class _VaultListScreenState extends ConsumerState<VaultListScreen> {
   String _searchQuery = '';
   String? _selectedTag;
-  Timer? _clipboardTimer;
 
   void _copyToClipboard(String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
+    ClipboardUtil.copyTemporary(text);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$label copied to clipboard')),
     );
-
-    _clipboardTimer?.cancel();
-    _clipboardTimer = Timer(const Duration(seconds: 30), () {
-      Clipboard.setData(const ClipboardData(text: ''));
-    });
   }
 
   @override
   void dispose() {
-    _clipboardTimer?.cancel();
+    ClipboardUtil.cancelTimer();
     super.dispose();
   }
 
@@ -241,19 +236,23 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                           border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
                         ),
                         child: Center(
-                          child: Text(
-                            entry.title.isNotEmpty ? entry.title[0].toUpperCase() : '?',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 18),
-                          ),
+                          child: entry.type == EntryType.authenticator 
+                              ? Icon(Icons.access_time, color: primaryColor)
+                              : Text(
+                                  entry.title.isNotEmpty ? entry.title[0].toUpperCase() : '?',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: primaryColor, fontSize: 18),
+                                ),
                         ),
                       ),
                       title: Text(entry.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      subtitle: Text(entry.username, style: const TextStyle(color: Colors.white54)),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.copy, color: Colors.white38),
-                        tooltip: 'Copy Password',
-                        onPressed: () => _copyToClipboard(entry.password, 'Password'),
-                      ),
+                      subtitle: Text(entry.type == EntryType.authenticator ? 'Authenticator' : entry.username, style: const TextStyle(color: Colors.white54)),
+                      trailing: entry.type == EntryType.login 
+                          ? IconButton(
+                              icon: const Icon(Icons.copy, color: Colors.white38),
+                              tooltip: 'Copy Password',
+                              onPressed: () => _copyToClipboard(entry.password, 'Password'),
+                            )
+                          : const Icon(Icons.chevron_right, color: Colors.white38),
                     ),
                   ),
                 ),
@@ -264,17 +263,45 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.push(
-            context,
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => const AddEditEntryScreen(),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                const begin = Offset(0.0, 1.0);
-                const end = Offset.zero;
-                const curve = Curves.ease;
-                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                return SlideTransition(position: animation.drive(tween), child: child);
-              },
+          showModalBottomSheet(
+            context: context,
+            builder: (ctx) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('Add Item', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.lock_outline),
+                  title: const Text('Login / Password'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AddEditEntryScreen()),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.access_time),
+                  title: const Text('Authenticator (2FA)'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AddAuthenticatorScreen()),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.credit_card),
+                  title: const Text('Credit Card (Coming Soon)'),
+                  enabled: false,
+                  onTap: () {},
+                ),
+                const SizedBox(height: 32),
+              ],
             ),
           );
         },
