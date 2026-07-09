@@ -1,16 +1,27 @@
 package com.onepass.app
 
-import android.app.Activity
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.FragmentActivity
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.embedding.engine.dart.DartExecutor
-import io.flutter.plugin.common.MethodChannel
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.nio.charset.StandardCharsets
 
+/**
+ * Handles the "Save password?" flow triggered by the autofill framework.
+ * 
+ * Instead of spawning a new FlutterEngine (which races with Dart initialization),
+ * we write the pending save request to a JSON file that Flutter's main engine
+ * processes on next launch or resume via AutofillCacheService.processPendingSaves().
+ */
 class SaveAuthActivity : FragmentActivity() {
-    private var flutterEngine: FlutterEngine? = null
+    companion object {
+        private const val TAG = "SaveAuthActivity"
+        const val PENDING_SAVES_FILE = "autofill_pending_saves.json"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,32 +64,35 @@ class SaveAuthActivity : FragmentActivity() {
     }
 
     private fun handleSuccessfulAuth(domain: String, username: String, password: String) {
-        flutterEngine = FlutterEngine(this)
-        flutterEngine?.dartExecutor?.executeDartEntrypoint(
-            DartExecutor.DartEntrypoint.createDefault()
-        )
-        
-        val channel = MethodChannel(flutterEngine!!.dartExecutor.binaryMessenger, "com.example.onepass/autofill")
-        
-        channel.invokeMethod("saveAutofillEntry", mapOf(
-            "domain" to domain,
-            "username" to username,
-            "password" to password
-        ), object : MethodChannel.Result {
-            override fun success(result: Any?) {
-                finish()
+        try {
+            // Write the pending save to a JSON file for Flutter to process
+            val pendingFile = File(applicationContext.filesDir, PENDING_SAVES_FILE)
+            
+            val pendingArray = if (pendingFile.exists()) {
+                try {
+                    JSONArray(pendingFile.readText(StandardCharsets.UTF_8))
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not parse existing pending saves, starting fresh", e)
+                    JSONArray()
+                }
+            } else {
+                JSONArray()
             }
-            override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
-                finish()
-            }
-            override fun notImplemented() {
-                finish()
-            }
-        })
-    }
 
-    override fun onDestroy() {
-        flutterEngine?.destroy()
-        super.onDestroy()
+            val saveRequest = JSONObject().apply {
+                put("domain", domain)
+                put("username", username)
+                put("password", password)
+                put("timestamp", System.currentTimeMillis())
+            }
+            pendingArray.put(saveRequest)
+
+            pendingFile.writeText(pendingArray.toString(), StandardCharsets.UTF_8)
+            Log.d(TAG, "Queued save request for domain: $domain")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to queue save request", e)
+        }
+        
+        finish()
     }
 }

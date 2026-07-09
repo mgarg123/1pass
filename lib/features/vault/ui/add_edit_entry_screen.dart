@@ -126,6 +126,14 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
       newUpdatedAt = widget.entry!.updatedAt.add(const Duration(milliseconds: 1));
     }
 
+    List<PasswordHistoryItem> history = List.from(widget.entry?.passwordHistory ?? []);
+    if (widget.entry != null && widget.entry!.password != _passwordController.text && widget.entry!.password.isNotEmpty) {
+      history.insert(0, PasswordHistoryItem(
+        password: widget.entry!.password,
+        changedAt: now,
+      ));
+    }
+
     final newEntry = VaultEntry(
       id: widget.entry?.id ?? const Uuid().v4(),
       type: widget.entry?.type ?? EntryType.login,
@@ -136,6 +144,7 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
       notes: _notesController.text.isEmpty ? null : _notesController.text,
       totpSecret: extractedTotpSecret,
       tags: tags,
+      passwordHistory: history,
       createdAt: widget.entry?.createdAt ?? now,
       updatedAt: newUpdatedAt,
     );

@@ -2,6 +2,28 @@ import 'dart:convert';
 import 'package:equatable/equatable.dart';
 import 'entry_type.dart';
 
+class PasswordHistoryItem extends Equatable {
+  final String password;
+  final DateTime changedAt;
+
+  const PasswordHistoryItem({required this.password, required this.changedAt});
+
+  Map<String, dynamic> toJson() => {
+        'password': password,
+        'changedAt': changedAt.toIso8601String(),
+      };
+
+  factory PasswordHistoryItem.fromJson(Map<String, dynamic> json) {
+    return PasswordHistoryItem(
+      password: json['password'] as String,
+      changedAt: DateTime.parse(json['changedAt'] as String),
+    );
+  }
+
+  @override
+  List<Object?> get props => [password, changedAt];
+}
+
 class VaultEntry extends Equatable {
   final String id;
   final EntryType type;
@@ -19,6 +41,7 @@ class VaultEntry extends Equatable {
   final String? bankName;
   final List<String> tags;
   final List<String> ignoredWarnings;
+  final List<PasswordHistoryItem> passwordHistory;
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
@@ -41,6 +64,7 @@ class VaultEntry extends Equatable {
     this.bankName,
     required this.tags,
     this.ignoredWarnings = const [],
+    this.passwordHistory = const [],
     required this.createdAt,
     required this.updatedAt,
     this.isDeleted = false,
@@ -64,6 +88,7 @@ class VaultEntry extends Equatable {
     String? bankName,
     List<String>? tags,
     List<String>? ignoredWarnings,
+    List<PasswordHistoryItem>? passwordHistory,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
@@ -86,6 +111,7 @@ class VaultEntry extends Equatable {
       bankName: bankName ?? this.bankName,
       tags: tags ?? this.tags,
       ignoredWarnings: ignoredWarnings ?? this.ignoredWarnings,
+      passwordHistory: passwordHistory ?? this.passwordHistory,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
@@ -111,6 +137,7 @@ class VaultEntry extends Equatable {
       'bankName': bankName,
       'tags': tags,
       'ignoredWarnings': ignoredWarnings,
+      'passwordHistory': passwordHistory.map((e) => e.toJson()).toList(),
       'isFavorite': isFavorite,
     });
   }
@@ -133,6 +160,7 @@ class VaultEntry extends Equatable {
         bankName,
         tags,
         ignoredWarnings,
+        passwordHistory,
         createdAt,
         updatedAt,
         isDeleted,

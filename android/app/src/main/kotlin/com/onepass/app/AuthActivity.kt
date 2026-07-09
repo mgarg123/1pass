@@ -1,12 +1,12 @@
 package com.onepass.app
 
 import android.app.Activity
-import android.app.assist.AssistStructure
 import android.content.Intent
 import android.os.Bundle
 import android.service.autofill.Dataset
 import android.service.autofill.FillResponse
 import android.util.Base64
+import android.util.Log
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
@@ -23,6 +23,9 @@ import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 
 class AuthActivity : FragmentActivity() {
+    companion object {
+        private const val TAG = "AuthActivity"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,7 +63,7 @@ class AuthActivity : FragmentActivity() {
     private fun handleSuccessfulAuth() {
         Thread {
             try {
-                // Read key
+                // Read key from FlutterSecureStorage
                 val options = HashMap<String, Any>()
                 val config = FlutterSecureStorageConfig(options)
                 val storage = FlutterSecureStorage(applicationContext)
@@ -74,17 +77,23 @@ class AuthActivity : FragmentActivity() {
 
                 val keyBase64 = storage.read("biometric_derived_key")
                 if (keyBase64 == null) {
+                    Log.e(TAG, "No biometric key found in secure storage")
                     finishWithEmpty()
                     return@Thread
                 }
 
                 val keyBytes = Base64.decode(keyBase64, Base64.DEFAULT)
                 
-                // Read Hive
-                val path = getDir("flutter", MODE_PRIVATE).absolutePath + "/test_box" // wait, it's vault_entries.hive
-                val file = File(getDir("flutter", MODE_PRIVATE), "vault_entries.hive")
-                val reader = HiveReader(file)
-                val entries = reader.readAllEntries()
+                // Read entries from JSON cache (written by Flutter's AutofillCacheService)
+                val cacheFile = File(applicationContext.filesDir, "autofill_cache.json")
+                if (!cacheFile.exists()) {
+                    Log.e(TAG, "Autofill cache file not found at: ${cacheFile.absolutePath}")
+                    finishWithEmpty()
+                    return@Thread
+                }
+
+                val cacheJson = JSONObject(cacheFile.readText(StandardCharsets.UTF_8))
+                val entriesArray = cacheJson.getJSONArray("entries")
 
                 val cryptoService = CryptoService()
                 
@@ -93,16 +102,18 @@ class AuthActivity : FragmentActivity() {
 
                 val matches = mutableListOf<Map<String, String>>()
                 
-                for (entry in entries) {
-                    val encryptedData = entry["encryptedData"] as? String
-                    if (encryptedData != null) {
+                for (i in 0 until entriesArray.length()) {
+                    val entry = entriesArray.getJSONObject(i)
+                    val encryptedData = entry.optString("encryptedData", "")
+                    val title = entry.optString("title", "")
+                    
+                    if (encryptedData.isNotEmpty()) {
                         try {
                             val decrypted = cryptoService.decrypt(encryptedData, keyBytes)
                             val jsonStr = String(decrypted, StandardCharsets.UTF_8)
                             val json = JSONObject(jsonStr)
                             
                             val url = json.optString("url", "")
-                            val title = entry["title"] as? String ?: ""
                             
                             if (fuzzyMatch(target, url) || fuzzyMatch(target, title)) {
                                 val matchMap = mutableMapOf<String, String>()
@@ -112,13 +123,12 @@ class AuthActivity : FragmentActivity() {
                                 matches.add(matchMap)
                             }
                         } catch (e: Exception) {
-                            // ignore decryption failure for a single entry
+                            Log.w(TAG, "Failed to decrypt entry: ${entry.optString("id", "?")}", e)
                         }
                     }
                 }
 
-                // If no matches, we'd normally show a search UI, but for now we just return empty
-                // We'll return the matches in the FillResponse
+                // Build the FillResponse with matched datasets
                 val responseBuilder = FillResponse.Builder()
                 
                 val usernameIds = intent.getParcelableArrayListExtra<AutofillId>("username_ids") ?: ArrayList()
@@ -151,6 +161,7 @@ class AuthActivity : FragmentActivity() {
                 finish()
 
             } catch (e: Exception) {
+                Log.e(TAG, "Error during autofill auth", e)
                 e.printStackTrace()
                 finishWithEmpty()
             }

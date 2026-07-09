@@ -5,6 +5,7 @@ import '../crypto/crypto_models.dart';
 import '../crypto/crypto_service.dart';
 import 'vault_repository.dart';
 import 'hive_setup.dart';
+import 'autofill_cache_service.dart';
 
 class SyncingVaultRepository implements VaultRepository {
   final VaultRepository _localRepository;
@@ -163,5 +164,7 @@ class SyncingVaultRepository implements VaultRepository {
     
     // Update last sync time
     await HiveSetup.metaBox.put('last_sync_time', DateTime.now().toUtc().toIso8601String());
+    // Update autofill cache after sync
+    await AutofillCacheService.writeCache();
   }
 }
