@@ -119,6 +119,14 @@ class BackupService {
           tags: decryptedJson['tags'] != null 
               ? List<String>.from(decryptedJson['tags']) 
               : List<String>.from(entryData['tags'] ?? []),
+          ignoredWarnings: decryptedJson['ignoredWarnings'] != null
+              ? List<String>.from(decryptedJson['ignoredWarnings'])
+              : [],
+          passwordHistory: decryptedJson['passwordHistory'] != null
+              ? (decryptedJson['passwordHistory'] as List)
+                  .map((e) => PasswordHistoryItem.fromJson(Map<String, dynamic>.from(e)))
+                  .toList()
+              : [],
           createdAt: DateTime.parse(entryData['createdAt'] as String),
           updatedAt: DateTime.parse(entryData['updatedAt'] as String),
           isDeleted: entryData['isDeleted'] == true,

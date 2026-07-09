@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
 import '../models/vault_entry.dart';
 import '../providers/vault_provider.dart';
 import '../../../core/utils/clipboard_util.dart';
@@ -149,7 +150,7 @@ class ViewEntryScreen extends ConsumerWidget {
               ),
             ),
             
-            if (currentEntry.totpSecret != null && currentEntry.totpSecret!.isNotEmpty) ...[
+            if ((currentEntry.totpSecret != null && currentEntry.totpSecret!.isNotEmpty) || currentEntry.passwordHistory.isNotEmpty) ...[
               const SizedBox(height: 24),
               const Text(
                 'SECURITY',
@@ -159,19 +160,49 @@ class ViewEntryScreen extends ConsumerWidget {
               Card(
                 margin: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: ListTile(
-                  title: const Text('One-Time Password', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: TotpLiveSubtitle(secret: currentEntry.totpSecret!),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.copy, color: Colors.white38),
-                    onPressed: () {
-                      final code = TotpUtil.generateCode(currentEntry.totpSecret!);
-                      _copyToClipboard(context, code, '2FA Code');
-                    },
-                  ),
+                child: Column(
+                  children: [
+                    if (currentEntry.totpSecret != null && currentEntry.totpSecret!.isNotEmpty)
+                      ListTile(
+                        title: const Text('One-Time Password', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: TotpLiveSubtitle(secret: currentEntry.totpSecret!),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.copy, color: Colors.white38),
+                          onPressed: () {
+                            final code = TotpUtil.generateCode(currentEntry.totpSecret!);
+                            _copyToClipboard(context, code, '2FA Code');
+                          },
+                        ),
+                      ),
+                    if (currentEntry.totpSecret != null && currentEntry.totpSecret!.isNotEmpty && currentEntry.passwordHistory.isNotEmpty)
+                      const Divider(height: 1, indent: 16, color: Colors.white12),
+                    if (currentEntry.passwordHistory.isNotEmpty)
+                      Theme(
+                        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                        child: ExpansionTile(
+                          title: const Text('Password History', style: TextStyle(color: Colors.white54, fontSize: 14)),
+                          children: currentEntry.passwordHistory.map((historyItem) {
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 32),
+                              title: const Text('••••••••••••', style: TextStyle(color: Colors.white, fontSize: 16)),
+                              subtitle: Text(
+                                'Changed on ${DateFormat.yMMMd().format(historyItem.changedAt)} at ${DateFormat.jm().format(historyItem.changedAt)}',
+                                style: const TextStyle(color: Colors.white54, fontSize: 12),
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.copy, color: Colors.white38),
+                                onPressed: () {
+                                  _copyToClipboard(context, historyItem.password, 'Old Password');
+                                },
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],

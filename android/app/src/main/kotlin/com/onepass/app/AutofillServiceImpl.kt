@@ -57,13 +57,11 @@ class AutofillServiceImpl : AutofillService() {
         var flags = PendingIntent.FLAG_CANCEL_CURRENT
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             flags = flags or PendingIntent.FLAG_MUTABLE
-        } else {
-            // Below SDK 31, no mutability flag is required but acceptable
         }
 
         val pendingIntent = PendingIntent.getActivity(
             this,
-            1001,
+            System.nanoTime().toInt(),
             authIntent,
             flags
         )
@@ -75,10 +73,24 @@ class AutofillServiceImpl : AutofillService() {
         autofillIds.addAll(usernameIds)
         autofillIds.addAll(passwordIds)
 
-        val saveInfo = SaveInfo.Builder(
+        // Determine required IDs for SaveInfo: password is required, username is optional
+        val requiredIds = if (passwordIds.isNotEmpty()) {
+            passwordIds.toTypedArray()
+        } else {
+            usernameIds.toTypedArray()
+        }
+
+        val saveInfoBuilder = SaveInfo.Builder(
             SaveInfo.SAVE_DATA_TYPE_USERNAME or SaveInfo.SAVE_DATA_TYPE_PASSWORD,
-            autofillIds.toTypedArray()
-        ).build()
+            requiredIds
+        ).setFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
+
+        // Set username IDs as optional if password IDs are the required ones
+        if (passwordIds.isNotEmpty() && usernameIds.isNotEmpty()) {
+            saveInfoBuilder.setOptionalIds(usernameIds.toTypedArray())
+        }
+
+        val saveInfo = saveInfoBuilder.build()
 
         val response = FillResponse.Builder()
             .setSaveInfo(saveInfo)
@@ -230,8 +242,11 @@ class AutofillServiceImpl : AutofillService() {
                 }
             } else {
                 if (className.contains("EditText", true) || className.contains("AutoCompleteTextView", true)) {
-                    if (inputType == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD ||
-                        inputType == 129 || inputType == 225) { 
+                    val variation = inputType and android.text.InputType.TYPE_MASK_VARIATION
+                    if (variation == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD ||
+                        variation == android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
+                        variation == android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
+                        variation == android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD) {
                         isPassword = true
                     } else if (hint.contains("password", true)) {
                         isPassword = true

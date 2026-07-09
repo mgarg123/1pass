@@ -5,6 +5,7 @@ import '../../features/vault/models/entry_type.dart';
 import '../crypto/crypto_models.dart';
 import '../crypto/crypto_service.dart';
 import 'hive_setup.dart';
+import 'autofill_cache_service.dart';
 
 class LocalUserMeta {
   final Salt salt;
@@ -75,6 +76,11 @@ class HiveVaultRepository implements VaultRepository {
         ignoredWarnings: decryptedJson['ignoredWarnings'] != null
             ? List<String>.from(decryptedJson['ignoredWarnings'])
             : [],
+        passwordHistory: decryptedJson['passwordHistory'] != null
+            ? (decryptedJson['passwordHistory'] as List)
+                .map((e) => PasswordHistoryItem.fromJson(Map<String, dynamic>.from(e)))
+                .toList()
+            : [],
         createdAt: DateTime.parse(data['createdAt'] as String),
         updatedAt: DateTime.parse(data['updatedAt'] as String),
         isDeleted: data['isDeleted'] == true,
@@ -107,6 +113,8 @@ class HiveVaultRepository implements VaultRepository {
     };
 
     await box.put(entry.id, data);
+    // Update autofill cache for native Android autofill service
+    await AutofillCacheService.writeCache();
   }
 
   @override
@@ -125,6 +133,8 @@ class HiveVaultRepository implements VaultRepository {
       updatedData['updatedAt'] = newUpdatedAt.toIso8601String();
       
       await box.put(id, updatedData);
+      // Update autofill cache for native Android autofill service
+      await AutofillCacheService.writeCache();
     }
   }
 
@@ -154,5 +164,7 @@ class HiveVaultRepository implements VaultRepository {
   Future<void> clearVault() async {
     await HiveSetup.vaultBox.clear();
     await HiveSetup.metaBox.clear();
+    // Clear autofill cache on vault reset
+    await AutofillCacheService.clearCache();
   }
 }
