@@ -8,6 +8,7 @@ import '../models/vault_entry.dart';
 import '../../../core/sync/sync_provider.dart';
 import '../../../core/utils/clipboard_util.dart';
 import 'add_edit_entry_screen.dart';
+import 'view_entry_screen.dart';
 import 'authenticator/add_authenticator_screen.dart';
 import 'credit_card/add_credit_card_screen.dart';
 import 'widgets/entry_avatar_widget.dart';
@@ -453,6 +454,8 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                         pageBuilder: (context, animation, secondaryAnimation) {
                           if (entry.type == EntryType.creditCard) {
                             return AddCreditCardScreen(entry: entry);
+                          } else if (entry.type == EntryType.login) {
+                            return ViewEntryScreen(entry: entry);
                           }
                           return AddEditEntryScreen(entry: entry);
                         },
