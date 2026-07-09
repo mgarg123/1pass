@@ -127,6 +127,11 @@ class BackupService {
                   .map((e) => PasswordHistoryItem.fromJson(Map<String, dynamic>.from(e)))
                   .toList()
               : [],
+          customFields: decryptedJson['customFields'] != null
+              ? (decryptedJson['customFields'] as List)
+                  .map((e) => CustomField.fromJson(Map<String, dynamic>.from(e)))
+                  .toList()
+              : [],
           createdAt: DateTime.parse(entryData['createdAt'] as String),
           updatedAt: DateTime.parse(entryData['updatedAt'] as String),
           isDeleted: entryData['isDeleted'] == true,

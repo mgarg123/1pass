@@ -35,6 +35,8 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
   bool _isSaving = false;
   bool _isDeleting = false;
 
+  List<CustomField> _customFields = [];
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +47,7 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
     _notesController = TextEditingController(text: widget.entry?.notes ?? '');
     _tagsController = TextEditingController(text: widget.entry?.tags.join(', ') ?? '');
     _totpSecretController = TextEditingController(text: widget.entry?.totpSecret ?? '');
+    _customFields = List.from(widget.entry?.customFields ?? []);
     
     _evaluateStrength(_passwordController.text);
   }
@@ -98,6 +101,63 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
     }
   }
 
+  Future<void> _addCustomField() async {
+    final nameController = TextEditingController();
+    final valueController = TextEditingController();
+    bool isObscured = false;
+
+    final result = await showDialog<CustomField>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Add Custom Field'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Field Name (e.g., PIN)'),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: valueController,
+                  obscureText: isObscured,
+                  decoration: const InputDecoration(labelText: 'Field Value'),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  title: const Text('Hide Value'),
+                  contentPadding: EdgeInsets.zero,
+                  value: isObscured,
+                  onChanged: (val) => setDialogState(() => isObscured = val),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () {
+                  if (nameController.text.isNotEmpty && valueController.text.isNotEmpty) {
+                    Navigator.pop(ctx, CustomField(name: nameController.text, value: valueController.text, isObscured: isObscured));
+                  }
+                },
+                child: const Text('Add'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        _customFields.add(result);
+      });
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     
@@ -145,6 +205,7 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
       totpSecret: extractedTotpSecret,
       tags: tags,
       passwordHistory: history,
+      customFields: _customFields,
       createdAt: widget.entry?.createdAt ?? now,
       updatedAt: newUpdatedAt,
     );
@@ -395,6 +456,45 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
                   ),
                 ),
               ),
+              if (_customFields.isNotEmpty)
+                Card(
+                  margin: const EdgeInsets.only(top: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        child: Text('Custom Fields', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                      ),
+                      ..._customFields.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final field = entry.value;
+                        return ListTile(
+                          title: Text(field.name),
+                          subtitle: Text(field.isObscured ? '••••••••' : field.value),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+                            onPressed: () {
+                              setState(() {
+                                _customFields.removeAt(idx);
+                              });
+                            },
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: _addCustomField,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Custom Field'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 32),
             ].animate(interval: 50.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutQuad),
           ),
         ),

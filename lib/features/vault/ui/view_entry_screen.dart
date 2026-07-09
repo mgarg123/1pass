@@ -206,6 +206,46 @@ class ViewEntryScreen extends ConsumerWidget {
                 ),
               ),
             ],
+            if (currentEntry.customFields.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              const Text(
+                'CUSTOM FIELDS',
+                style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                margin: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  children: currentEntry.customFields.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final field = entry.value;
+                    return Column(
+                      children: [
+                        ListTile(
+                          title: Text(field.name, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Text(
+                              field.isObscured ? '••••••••••••' : field.value,
+                              style: const TextStyle(fontSize: 16, color: Colors.white),
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.copy, color: Colors.white38),
+                            onPressed: () {
+                              _copyToClipboard(context, field.value, field.name);
+                            },
+                          ),
+                        ),
+                        if (idx < currentEntry.customFields.length - 1)
+                          const Divider(height: 1, indent: 16, color: Colors.white12),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
 
             if ((currentEntry.notes != null && currentEntry.notes!.isNotEmpty) || currentEntry.tags.isNotEmpty) ...[
               const SizedBox(height: 24),
