@@ -94,7 +94,7 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 leading: Icon(Icons.timer_outlined, color: Colors.grey[400]),
                 title: const Text('Auto-lock Timer'),
-                subtitle: const Text('Require master password after inactivity'),
+                subtitle: const Text('Require master password after inactivity', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.white54)),
                 trailing: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     value: autoLockSeconds,
@@ -183,7 +183,7 @@ class SettingsScreen extends ConsumerWidget {
                 activeColor: Colors.blueAccent,
                 secondary: Icon(Icons.security, color: Colors.grey[400]),
                 title: const Text('Check Password Breaches'),
-                subtitle: const Text('Anonymously check against HIBP database'),
+                subtitle: const Text('Anonymously check against HIBP database', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.white54)),
                 value: ref.watch(breachSettingsProvider),
                 onChanged: (val) {
                   ref.read(breachSettingsProvider.notifier).setEnabled(val);
@@ -194,7 +194,7 @@ class SettingsScreen extends ConsumerWidget {
                 activeColor: Colors.blueAccent,
                 secondary: Icon(Icons.history_toggle_off, color: Colors.grey[400]),
                 title: const Text('Flag Old Passwords'),
-                subtitle: const Text('Warn about passwords older than 1 year'),
+                subtitle: const Text('Warn about passwords older than 1 year', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.white54)),
                 value: ref.watch(flagOldPasswordsProvider),
                 onChanged: (val) {
                   ref.read(flagOldPasswordsProvider.notifier).setEnabled(val);
