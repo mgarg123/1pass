@@ -80,9 +80,17 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
   }
 
   Future<void> _openGenerator() async {
-    final generated = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(builder: (_) => const GeneratorScreen()),
+    final generated = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1C1C1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => const FractionallySizedBox(
+        heightFactor: 0.85,
+        child: GeneratorScreen(isStandalone: false),
+      ),
     );
     if (generated != null && generated.isNotEmpty) {
       _passwordController.text = generated;
