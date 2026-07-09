@@ -24,6 +24,35 @@ class PasswordHistoryItem extends Equatable {
   List<Object?> get props => [password, changedAt];
 }
 
+class CustomField extends Equatable {
+  final String name;
+  final String value;
+  final bool isObscured;
+
+  const CustomField({
+    required this.name,
+    required this.value,
+    this.isObscured = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'value': value,
+        'isObscured': isObscured,
+      };
+
+  factory CustomField.fromJson(Map<String, dynamic> json) {
+    return CustomField(
+      name: json['name'] as String,
+      value: json['value'] as String,
+      isObscured: json['isObscured'] as bool? ?? false,
+    );
+  }
+
+  @override
+  List<Object?> get props => [name, value, isObscured];
+}
+
 class VaultEntry extends Equatable {
   final String id;
   final EntryType type;
@@ -42,6 +71,7 @@ class VaultEntry extends Equatable {
   final List<String> tags;
   final List<String> ignoredWarnings;
   final List<PasswordHistoryItem> passwordHistory;
+  final List<CustomField> customFields;
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
@@ -65,6 +95,7 @@ class VaultEntry extends Equatable {
     required this.tags,
     this.ignoredWarnings = const [],
     this.passwordHistory = const [],
+    this.customFields = const [],
     required this.createdAt,
     required this.updatedAt,
     this.isDeleted = false,
@@ -89,6 +120,7 @@ class VaultEntry extends Equatable {
     List<String>? tags,
     List<String>? ignoredWarnings,
     List<PasswordHistoryItem>? passwordHistory,
+    List<CustomField>? customFields,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isDeleted,
@@ -112,6 +144,7 @@ class VaultEntry extends Equatable {
       tags: tags ?? this.tags,
       ignoredWarnings: ignoredWarnings ?? this.ignoredWarnings,
       passwordHistory: passwordHistory ?? this.passwordHistory,
+      customFields: customFields ?? this.customFields,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
@@ -138,6 +171,7 @@ class VaultEntry extends Equatable {
       'tags': tags,
       'ignoredWarnings': ignoredWarnings,
       'passwordHistory': passwordHistory.map((e) => e.toJson()).toList(),
+      'customFields': customFields.map((e) => e.toJson()).toList(),
       'isFavorite': isFavorite,
     });
   }
@@ -161,6 +195,7 @@ class VaultEntry extends Equatable {
         tags,
         ignoredWarnings,
         passwordHistory,
+        customFields,
         createdAt,
         updatedAt,
         isDeleted,

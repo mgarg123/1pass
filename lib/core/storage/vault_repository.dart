@@ -81,6 +81,11 @@ class HiveVaultRepository implements VaultRepository {
                 .map((e) => PasswordHistoryItem.fromJson(Map<String, dynamic>.from(e)))
                 .toList()
             : [],
+        customFields: decryptedJson['customFields'] != null
+            ? (decryptedJson['customFields'] as List)
+                .map((e) => CustomField.fromJson(Map<String, dynamic>.from(e)))
+                .toList()
+            : [],
         createdAt: DateTime.parse(data['createdAt'] as String),
         updatedAt: DateTime.parse(data['updatedAt'] as String),
         isDeleted: data['isDeleted'] == true,
