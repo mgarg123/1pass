@@ -2,13 +2,20 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:uuid/uuid.dart';
 import 'hive_setup.dart';
+import 'vault_repository.dart';
+import '../crypto/crypto_service.dart';
+import '../crypto/crypto_models.dart';
+import '../../features/vault/models/vault_entry.dart';
 
 /// Writes a JSON cache of vault entries for the native Android autofill service.
 /// This replaces the fragile approach of parsing Hive's binary format from Kotlin.
 /// The cache file is written to the app's files directory at a known path.
 class AutofillCacheService {
   static const String _cacheFileName = 'autofill_cache.json';
+  static const String _pendingSavesFileName = 'autofill_pending_saves.json';
 
   /// Writes the current vault entries to the JSON cache file.
   /// Should be called after any save, delete, or sync operation.
@@ -51,6 +58,116 @@ class AutofillCacheService {
       debugPrint('AutofillCacheService: wrote ${entries.length} entries to cache');
     } catch (e) {
       debugPrint('AutofillCacheService: failed to write cache: $e');
+    }
+  }
+
+  /// Processes pending save requests queued by SaveAuthActivity.
+  /// Called on app startup/resume to handle credentials saved while the main
+  /// Flutter engine wasn't running.
+  static Future<void> processPendingSaves() async {
+    if (!Platform.isAndroid) return;
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/$_pendingSavesFileName');
+      
+      if (!await file.exists()) return;
+
+      final content = await file.readAsString();
+      final List<dynamic> pendingSaves = jsonDecode(content);
+      
+      if (pendingSaves.isEmpty) {
+        await file.delete();
+        return;
+      }
+
+      // Get encryption key
+      const storage = FlutterSecureStorage();
+      final keyBase64 = await storage.read(key: 'biometric_derived_key');
+      if (keyBase64 == null) {
+        debugPrint('AutofillCacheService: No key found, skipping pending saves');
+        return;
+      }
+
+      final keyBytes = base64Decode(keyBase64);
+      final encryptionKey = EncryptionKey(keyBytes);
+      final cryptoService = CryptoService();
+      final repository = HiveVaultRepository(cryptoService);
+
+      final existingEntries = await repository.getAllEntries(encryptionKey);
+      int processed = 0;
+
+      for (final save in pendingSaves) {
+        try {
+          final domain = save['domain'] as String? ?? '';
+          final username = save['username'] as String? ?? '';
+          final password = save['password'] as String? ?? '';
+
+          if (domain.isEmpty && (username.isEmpty || password.isEmpty)) continue;
+
+          // Fuzzy match against existing entries
+          VaultEntry? match;
+          for (final entry in existingEntries) {
+            final t = domain.toLowerCase();
+            final url = entry.url?.toLowerCase() ?? '';
+            final title = entry.title.toLowerCase();
+
+            bool isMatch = false;
+            if (t.isNotEmpty && (url.contains(t) || t.contains(url) || title.contains(t) || t.contains(title))) {
+              isMatch = true;
+            } else if (t.isNotEmpty && url.isNotEmpty) {
+              final cleanU = url.replaceAll('https://', '').replaceAll('http://', '').replaceAll('www.', '').split('/')[0];
+              if (t.contains(cleanU) || cleanU.contains(t)) {
+                isMatch = true;
+              }
+            }
+
+            if (isMatch && entry.username == username) {
+              match = entry;
+              break;
+            }
+          }
+
+          if (match != null) {
+            // Update password if it changed
+            if (match.password != password) {
+              final updatedEntry = match.copyWith(
+                password: password,
+                updatedAt: DateTime.now().toUtc(),
+              );
+              await repository.saveEntry(updatedEntry, encryptionKey);
+            }
+          } else {
+            // Create new entry
+            final newEntry = VaultEntry(
+              id: const Uuid().v4(),
+              title: domain.isNotEmpty ? domain : 'Saved Credential',
+              username: username,
+              password: password,
+              url: domain,
+              notes: '',
+              tags: const [],
+              createdAt: DateTime.now().toUtc(),
+              updatedAt: DateTime.now().toUtc(),
+            );
+            await repository.saveEntry(newEntry, encryptionKey);
+          }
+          processed++;
+        } catch (e) {
+          debugPrint('AutofillCacheService: failed to process save: $e');
+        }
+      }
+
+      // Delete pending file after processing
+      await file.delete();
+      debugPrint('AutofillCacheService: processed $processed pending saves');
+
+      // Refresh the autofill cache with updated entries
+      if (processed > 0) {
+        await writeCache();
+      }
+    } catch (e) {
+      debugPrint('AutofillCacheService: failed to process pending saves: $e');
     }
   }
 

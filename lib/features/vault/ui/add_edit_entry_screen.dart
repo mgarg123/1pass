@@ -10,6 +10,62 @@ import '../../generator/ui/generator_screen.dart';
 import 'widgets/totp_display.dart';
 import '../utils/totp_util.dart';
 
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader(this.title);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 24, bottom: 8, top: 24),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          color: Colors.grey[500],
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionContainer extends StatelessWidget {
+  final List<Widget> children;
+  const _SectionContainer({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: children,
+      ),
+    );
+  }
+}
+
+class _CustomDivider extends StatelessWidget {
+  final double indent;
+  const _CustomDivider({this.indent = 16});
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      thickness: 0.5,
+      indent: indent,
+      color: Colors.grey[850],
+    );
+  }
+}
+
 class AddEditEntryScreen extends ConsumerStatefulWidget {
   final VaultEntry? entry;
 
@@ -290,188 +346,208 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(vertical: 16.0),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (widget.entry?.totpSecret != null)
-                TotpDisplay(secret: widget.entry!.totpSecret!),
-              Card(
-                margin: const EdgeInsets.only(bottom: 24),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextFormField(
-                        controller: _titleController,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TotpDisplay(secret: widget.entry!.totpSecret!),
+                ),
+              
+              const _SectionHeader('Credentials'),
+              _SectionContainer(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: TextFormField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Title *',
+                        prefixIcon: Icon(Icons.title),
+                        border: InputBorder.none,
+                      ),
+                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                    ),
+                  ),
+                  if (widget.entry?.type != EntryType.authenticator) ...[
+                    const _CustomDivider(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: TextFormField(
+                        controller: _usernameController,
                         decoration: const InputDecoration(
-                          labelText: 'Title *',
-                          prefixIcon: Icon(Icons.title),
+                          labelText: 'Username / Email *',
+                          prefixIcon: Icon(Icons.person_outline),
+                          border: InputBorder.none,
                         ),
                         validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                       ),
-                      if (widget.entry?.type != EntryType.authenticator) ...[
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _usernameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Username / Email *',
-                            prefixIcon: Icon(Icons.person_outline),
+                    ),
+                    const _CustomDivider(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        onChanged: _evaluateStrength,
+                        decoration: InputDecoration(
+                          labelText: 'Password *',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          border: InputBorder.none,
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                           ),
-                          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                         ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          onChanged: _evaluateStrength,
-                          decoration: InputDecoration(
-                            labelText: 'Password *',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                    const _CustomDivider(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 28.0),
+                          child: Text(
+                            displayStrength,
+                            style: TextStyle(
+                              color: (displayStrength == 'Weak' || displayStrength == 'Compromised') ? Colors.redAccent
+                                  : displayStrength == 'Medium' ? Colors.orangeAccent : Colors.greenAccent,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
                             ),
                           ),
-                          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                         ),
-                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: _openGenerator,
+                          icon: const Icon(Icons.generating_tokens, size: 16),
+                          label: const Text('Generate'),
+                        )
                       ],
-                      if (widget.entry?.type != EntryType.authenticator) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    ),
+                    if (breachState.isLoading)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4.0, bottom: 12.0, left: 28.0),
+                        child: Text('Checking breaches...', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      )
+                    else if (breachState.breachCount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0, bottom: 12.0, left: 28.0, right: 16.0),
+                        child: Row(
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.only(left: 12.0),
+                            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 16),
+                            const SizedBox(width: 4),
+                            Expanded(
                               child: Text(
-                                displayStrength,
-                                style: TextStyle(
-                                  color: (displayStrength == 'Weak' || displayStrength == 'Compromised') ? Colors.redAccent
-                                      : displayStrength == 'Medium' ? Colors.orangeAccent : Colors.greenAccent,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                'Compromised! Found in ${breachState.breachCount} data breaches.',
+                                style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
                               ),
                             ),
-                            TextButton.icon(
-                              onPressed: _openGenerator,
-                              icon: const Icon(Icons.generating_tokens),
-                              label: const Text('Generate'),
-                            )
                           ],
-                        ),
-                        if (breachState.isLoading)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8.0, left: 12.0),
-                            child: Text('Checking breaches...', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                          )
-                        else if (breachState.breachCount > 0)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0, left: 12.0),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 16),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    'Compromised! Found in ${breachState.breachCount} data breaches.',
-                                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
-                                  ),
-                                ),
-                              ],
-                            ).animate().fadeIn().slideY(begin: 0.2, end: 0),
+                        ).animate().fadeIn().slideY(begin: 0.2, end: 0),
+                      ),
+                  ] else ...[
+                    const _CustomDivider(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: TextFormField(
+                        controller: _totpSecretController,
+                        obscureText: _obscureTotpSecret,
+                        decoration: InputDecoration(
+                          labelText: 'Authenticator Key (Secret) *',
+                          prefixIcon: const Icon(Icons.vpn_key),
+                          border: InputBorder.none,
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscureTotpSecret ? Icons.visibility : Icons.visibility_off),
+                            onPressed: () => setState(() => _obscureTotpSecret = !_obscureTotpSecret),
                           ),
-                      ] else ...[
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _totpSecretController,
-                          obscureText: _obscureTotpSecret,
-                          decoration: InputDecoration(
-                            labelText: 'Authenticator Key (Secret) *',
-                            prefixIcon: const Icon(Icons.vpn_key),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscureTotpSecret ? Icons.visibility : Icons.visibility_off),
-                              onPressed: () => setState(() => _obscureTotpSecret = !_obscureTotpSecret),
-                            ),
-                          ),
-                          validator: (val) => val == null || val.isEmpty ? 'Required' : null,
                         ),
-                      ],
-                    ],
-                  ),
-                ),
+                        validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              Card(
-                margin: EdgeInsets.zero,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (widget.entry?.type != EntryType.authenticator) ...[
-                        TextFormField(
-                          controller: _urlController,
-                          decoration: const InputDecoration(
-                            labelText: 'URL (optional)',
-                            prefixIcon: Icon(Icons.link),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      TextFormField(
-                        controller: _tagsController,
+              
+              const _SectionHeader('Additional Details'),
+              _SectionContainer(
+                children: [
+                  if (widget.entry?.type != EntryType.authenticator) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: TextFormField(
+                        controller: _urlController,
                         decoration: const InputDecoration(
-                          labelText: 'Tags (comma separated)',
-                          prefixIcon: Icon(Icons.label_outline),
+                          labelText: 'URL (optional)',
+                          prefixIcon: Icon(Icons.link),
+                          border: InputBorder.none,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _notesController,
-                        maxLines: 4,
-                        decoration: const InputDecoration(
-                          labelText: 'Notes (optional)',
-                          alignLabelWithHint: true,
-                          prefixIcon: Icon(Icons.notes),
-                        ),
+                    ),
+                    const _CustomDivider(),
+                  ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: TextFormField(
+                      controller: _tagsController,
+                      decoration: const InputDecoration(
+                        labelText: 'Tags (comma separated)',
+                        prefixIcon: Icon(Icons.label_outline),
+                        border: InputBorder.none,
                       ),
-                      if (widget.entry?.type != EntryType.authenticator) ...[
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _totpSecretController,
-                          obscureText: _obscureTotpSecret,
-                          decoration: InputDecoration(
-                            labelText: 'Authenticator Key (TOTP Secret) (optional)',
-                            prefixIcon: const Icon(Icons.access_time),
-                            suffixIcon: IconButton(
-                              icon: Icon(_obscureTotpSecret ? Icons.visibility : Icons.visibility_off),
-                              onPressed: () => setState(() => _obscureTotpSecret = !_obscureTotpSecret),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
-                ),
-              ),
-              if (_customFields.isNotEmpty)
-                Card(
-                  margin: const EdgeInsets.only(top: 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                        child: Text('Custom Fields', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                  const _CustomDivider(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: TextFormField(
+                      controller: _notesController,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Notes (optional)',
+                        alignLabelWithHint: true,
+                        prefixIcon: Icon(Icons.notes),
+                        border: InputBorder.none,
                       ),
-                      ..._customFields.asMap().entries.map((entry) {
-                        final idx = entry.key;
-                        final field = entry.value;
-                        return ListTile(
-                          title: Text(field.name),
-                          subtitle: Text(field.isObscured ? '••••••••' : field.value),
+                    ),
+                  ),
+                  if (widget.entry?.type != EntryType.authenticator) ...[
+                    const _CustomDivider(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: TextFormField(
+                        controller: _totpSecretController,
+                        obscureText: _obscureTotpSecret,
+                        decoration: InputDecoration(
+                          labelText: 'Authenticator Key (TOTP Secret) (optional)',
+                          prefixIcon: const Icon(Icons.access_time),
+                          border: InputBorder.none,
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscureTotpSecret ? Icons.visibility : Icons.visibility_off),
+                            onPressed: () => setState(() => _obscureTotpSecret = !_obscureTotpSecret),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              
+              if (_customFields.isNotEmpty) ...[
+                const _SectionHeader('Custom Fields'),
+                _SectionContainer(
+                  children: _customFields.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final field = entry.value;
+                    return Column(
+                      children: [
+                        ListTile(
+                          title: Text(field.name, style: const TextStyle(fontSize: 14)),
+                          subtitle: Text(field.isObscured ? '••••••••' : field.value, style: const TextStyle(fontSize: 16, color: Colors.white)),
                           trailing: IconButton(
                             icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
                             onPressed: () {
@@ -480,21 +556,28 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
                               });
                             },
                           ),
-                        );
-                      }),
-                    ],
+                        ),
+                        if (idx < _customFields.length - 1)
+                          const _CustomDivider(indent: 16),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ],
+              
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: OutlinedButton.icon(
+                  onPressed: _addCustomField,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Custom Field'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                 ),
-              const SizedBox(height: 24),
-              OutlinedButton.icon(
-                onPressed: _addCustomField,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Custom Field'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 48),
             ].animate(interval: 50.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOutQuad),
           ),
         ),

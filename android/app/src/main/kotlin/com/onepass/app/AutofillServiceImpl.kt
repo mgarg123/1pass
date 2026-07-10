@@ -5,6 +5,7 @@ import android.app.assist.AssistStructure
 import android.content.Intent
 import android.os.CancellationSignal
 import android.service.autofill.AutofillService
+import android.service.autofill.Dataset
 import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
 import android.service.autofill.FillResponse
@@ -13,6 +14,7 @@ import android.service.autofill.SaveRequest
 import android.service.autofill.SaveInfo
 import android.util.Log
 import android.view.autofill.AutofillId
+import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
 import java.util.ArrayList
 
@@ -26,7 +28,7 @@ class AutofillServiceImpl : AutofillService() {
         cancellationSignal: CancellationSignal,
         callback: FillCallback
     ) {
-        Log.d(TAG, "onFillRequest called")
+        Log.i(TAG, "onFillRequest called")
         
         val context = request.fillContexts.last()
         val structure = context.structure
@@ -38,7 +40,10 @@ class AutofillServiceImpl : AutofillService() {
         
         traverseStructure(structure, usernameIds, passwordIds)
         
+        Log.i(TAG, "Found ${usernameIds.size} username fields, ${passwordIds.size} password fields")
+
         if (usernameIds.isEmpty() && passwordIds.isEmpty()) {
+            Log.i(TAG, "No autofillable fields found, returning null")
             callback.onSuccess(null)
             return
         }
@@ -48,6 +53,7 @@ class AutofillServiceImpl : AutofillService() {
         if (webDomain != null) {
             targetDomainOrPackage = webDomain
         }
+        Log.i(TAG, "Target domain/package: $targetDomainOrPackage")
 
         val authIntent = Intent(this, AuthActivity::class.java)
         authIntent.putExtra("target_domain_or_package", targetDomainOrPackage)
@@ -67,7 +73,7 @@ class AutofillServiceImpl : AutofillService() {
         )
 
         val presentation = RemoteViews(packageName, android.R.layout.simple_list_item_1)
-        presentation.setTextViewText(android.R.id.text1, "Unlock 1Pass")
+        presentation.setTextViewText(android.R.id.text1, "\uD83D\uDD12 Unlock 1Pass")
 
         val autofillIds = mutableListOf<AutofillId>()
         autofillIds.addAll(usernameIds)
@@ -92,11 +98,24 @@ class AutofillServiceImpl : AutofillService() {
 
         val saveInfo = saveInfoBuilder.build()
 
+        // Use dataset-level authentication instead of response-level authentication.
+        // Android 14+ "improved fill dialog" suppresses responses that only have
+        // response-level auth with no datasets.
+        val datasetBuilder = Dataset.Builder()
+        for (uid in usernameIds) {
+            datasetBuilder.setValue(uid, AutofillValue.forText(""), presentation)
+        }
+        for (pid in passwordIds) {
+            datasetBuilder.setValue(pid, AutofillValue.forText(""), presentation)
+        }
+        datasetBuilder.setAuthentication(pendingIntent.intentSender)
+        
         val response = FillResponse.Builder()
             .setSaveInfo(saveInfo)
-            .setAuthentication(autofillIds.toTypedArray(), pendingIntent.intentSender, presentation)
+            .addDataset(datasetBuilder.build())
             .build()
             
+        Log.i(TAG, "Returning FillResponse with auth dataset")
         callback.onSuccess(response)
     }
 
