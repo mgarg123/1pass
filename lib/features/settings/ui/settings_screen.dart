@@ -16,6 +16,9 @@ import '../providers/health_settings_provider.dart';
 import '../../vault/ui/password_health_screen.dart';
 import '../../../core/config/storage_mode.dart';
 import '../../../core/sync/sync_provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import '../../../core/updater/update_service.dart';
+import '../../../core/updater/update_dialog.dart';
 
 class _SectionHeader extends StatelessWidget {
   final String title;
@@ -277,6 +280,59 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ).animate().fadeIn(delay: 150.ms).slideY(begin: 0.05, end: 0),
           
+          const _SectionHeader('About').animate().fadeIn(delay: 175.ms),
+          _SectionContainer(
+            children: [
+              ListTile(
+                leading: Icon(Icons.info_outline, color: Colors.grey[400]),
+                title: const Text('About 1Pass'),
+                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                onTap: () async {
+                  final packageInfo = await PackageInfo.fromPlatform();
+                  if (context.mounted) {
+                    showAboutDialog(
+                      context: context,
+                      applicationName: packageInfo.appName.isEmpty ? '1Pass' : packageInfo.appName,
+                      applicationVersion: '${packageInfo.version} (${packageInfo.buildNumber})',
+                      applicationIcon: const Icon(Icons.security, size: 48, color: Colors.blueAccent),
+                      children: [
+                        const SizedBox(height: 16),
+                        const Text('A secure, cross-platform password manager.'),
+                      ],
+                    );
+                  }
+                },
+              ),
+              const _CustomDivider(),
+              ListTile(
+                leading: Icon(Icons.system_update_alt, color: Colors.grey[400]),
+                title: const Text('Check for Updates'),
+                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                onTap: () async {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (ctx) => const Center(child: CircularProgressIndicator()),
+                  );
+
+                  final updateService = UpdateService();
+                  final release = await updateService.checkForUpdates();
+                  
+                  if (context.mounted) {
+                    Navigator.pop(context); // close loading
+                    if (release != null) {
+                      UpdateDialog.show(context, release);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('You are on the latest version.')),
+                      );
+                    }
+                  }
+                },
+              ),
+            ],
+          ).animate().fadeIn(delay: 175.ms).slideY(begin: 0.05, end: 0),
+
           const SizedBox(height: 24),
           _SectionContainer(
             children: [
