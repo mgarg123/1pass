@@ -68,6 +68,10 @@ class VaultEntry extends Equatable {
   final String? cvv;
   final String? pin;
   final String? bankName;
+  final String? passkeyRelyingPartyId;
+  final String? passkeyUserHandle;
+  final String? passkeyPublicKey;
+  final String? passkeyPrivateKey;
   final List<String> tags;
   final List<String> ignoredWarnings;
   final List<PasswordHistoryItem> passwordHistory;
@@ -92,6 +96,10 @@ class VaultEntry extends Equatable {
     this.cvv,
     this.pin,
     this.bankName,
+    this.passkeyRelyingPartyId,
+    this.passkeyUserHandle,
+    this.passkeyPublicKey,
+    this.passkeyPrivateKey,
     required this.tags,
     this.ignoredWarnings = const [],
     this.passwordHistory = const [],
@@ -117,6 +125,10 @@ class VaultEntry extends Equatable {
     String? cvv,
     String? pin,
     String? bankName,
+    String? passkeyRelyingPartyId,
+    String? passkeyUserHandle,
+    String? passkeyPublicKey,
+    String? passkeyPrivateKey,
     List<String>? tags,
     List<String>? ignoredWarnings,
     List<PasswordHistoryItem>? passwordHistory,
@@ -141,6 +153,10 @@ class VaultEntry extends Equatable {
       cvv: cvv ?? this.cvv,
       pin: pin ?? this.pin,
       bankName: bankName ?? this.bankName,
+      passkeyRelyingPartyId: passkeyRelyingPartyId ?? this.passkeyRelyingPartyId,
+      passkeyUserHandle: passkeyUserHandle ?? this.passkeyUserHandle,
+      passkeyPublicKey: passkeyPublicKey ?? this.passkeyPublicKey,
+      passkeyPrivateKey: passkeyPrivateKey ?? this.passkeyPrivateKey,
       tags: tags ?? this.tags,
       ignoredWarnings: ignoredWarnings ?? this.ignoredWarnings,
       passwordHistory: passwordHistory ?? this.passwordHistory,
@@ -168,6 +184,10 @@ class VaultEntry extends Equatable {
       'cvv': cvv,
       'pin': pin,
       'bankName': bankName,
+      'passkeyRelyingPartyId': passkeyRelyingPartyId,
+      'passkeyUserHandle': passkeyUserHandle,
+      'passkeyPublicKey': passkeyPublicKey,
+      'passkeyPrivateKey': passkeyPrivateKey,
       'tags': tags,
       'ignoredWarnings': ignoredWarnings,
       'passwordHistory': passwordHistory.map((e) => e.toJson()).toList(),
@@ -192,6 +212,10 @@ class VaultEntry extends Equatable {
         cvv,
         pin,
         bankName,
+        passkeyRelyingPartyId,
+        passkeyUserHandle,
+        passkeyPublicKey,
+        passkeyPrivateKey,
         tags,
         ignoredWarnings,
         passwordHistory,

@@ -6,7 +6,8 @@ enum EntryType {
   creditCard,
   secureNote,
   wifi,
-  identity;
+  identity,
+  passkey;
 
   String get displayName {
     switch (this) {
@@ -22,6 +23,8 @@ enum EntryType {
         return 'Wi-Fi Password';
       case EntryType.identity:
         return 'Identity';
+      case EntryType.passkey:
+        return 'Passkey';
     }
   }
 
@@ -39,6 +42,8 @@ enum EntryType {
         return Colors.cyan;
       case EntryType.identity:
         return Colors.indigo;
+      case EntryType.passkey:
+        return Colors.deepPurple;
     }
   }
 }

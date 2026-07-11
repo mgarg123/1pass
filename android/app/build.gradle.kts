@@ -48,6 +48,9 @@ flutter {
 }
 
 dependencies {
+    implementation("androidx.credentials:credentials:1.3.0-alpha04")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0-alpha04")
+    implementation("com.upokecenter:cbor:4.5.1")
     testImplementation("junit:junit:4.13.2")
 }
 

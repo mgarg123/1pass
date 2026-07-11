@@ -146,6 +146,23 @@ class ViewEntryScreen extends ConsumerWidget {
                       ),
                     ),
                   ],
+                  if (currentEntry.passkeyPrivateKey != null && currentEntry.passkeyPrivateKey!.isNotEmpty) ...[
+                    if (currentEntry.username.isNotEmpty || currentEntry.password.isNotEmpty)
+                      const Divider(height: 1, indent: 16, color: Colors.white12),
+                    ListTile(
+                      title: const Text('Passkey', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.key, color: Colors.blueAccent, size: 16),
+                            const SizedBox(width: 8),
+                            Text('Ready for ${currentEntry.passkeyRelyingPartyId ?? "this site"}', style: const TextStyle(fontSize: 16, color: Colors.white)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -68,7 +68,7 @@ class AutofillCacheService {
     if (!Platform.isAndroid) return;
 
     try {
-      final dir = await getApplicationDocumentsDirectory();
+      final dir = await getApplicationSupportDirectory();
       final file = File('${dir.path}/$_pendingSavesFileName');
       
       if (!await file.exists()) return;
@@ -99,11 +99,16 @@ class AutofillCacheService {
 
       for (final save in pendingSaves) {
         try {
+          final type = save['type'] as String? ?? 'password';
           final domain = save['domain'] as String? ?? '';
           final username = save['username'] as String? ?? '';
           final password = save['password'] as String? ?? '';
+          
+          final userHandle = save['userHandle'] as String? ?? '';
+          final credentialId = save['credentialId'] as String? ?? '';
+          final privateKey = save['privateKey'] as String? ?? '';
 
-          if (domain.isEmpty && (username.isEmpty || password.isEmpty)) continue;
+          if (domain.isEmpty && (username.isEmpty || password.isEmpty) && type != 'passkey') continue;
 
           // Fuzzy match against existing entries
           VaultEntry? match;
@@ -129,19 +134,30 @@ class AutofillCacheService {
           }
 
           if (match != null) {
-            // Update password if it changed
-            if (match.password != password) {
-              final updatedEntry = match.copyWith(
-                password: password,
-                updatedAt: DateTime.now().toUtc(),
+            // Update password if it changed or add passkey fields
+            var updatedEntry = match;
+            bool changed = false;
+            if (type == 'password' && match.password != password) {
+              updatedEntry = updatedEntry.copyWith(password: password);
+              changed = true;
+            } else if (type == 'passkey' && credentialId.isNotEmpty) {
+              updatedEntry = updatedEntry.copyWith(
+                passkeyRelyingPartyId: domain,
+                passkeyUserHandle: userHandle,
+                passkeyPublicKey: '', // not strictly needed in Vault
+                passkeyPrivateKey: privateKey,
               );
+              changed = true;
+            }
+            if (changed) {
+              updatedEntry = updatedEntry.copyWith(updatedAt: DateTime.now().toUtc());
               await repository.saveEntry(updatedEntry, encryptionKey);
             }
           } else {
             // Create new entry
-            final newEntry = VaultEntry(
+            var newEntry = VaultEntry(
               id: const Uuid().v4(),
-              title: domain.isNotEmpty ? domain : 'Saved Credential',
+              title: domain.isNotEmpty ? domain : (type == 'passkey' ? 'Passkey' : 'Saved Credential'),
               username: username,
               password: password,
               url: domain,
@@ -150,6 +166,14 @@ class AutofillCacheService {
               createdAt: DateTime.now().toUtc(),
               updatedAt: DateTime.now().toUtc(),
             );
+            if (type == 'passkey' && credentialId.isNotEmpty) {
+              newEntry = newEntry.copyWith(
+                passkeyRelyingPartyId: domain,
+                passkeyUserHandle: userHandle,
+                passkeyPublicKey: '',
+                passkeyPrivateKey: privateKey,
+              );
+            }
             await repository.saveEntry(newEntry, encryptionKey);
           }
           processed++;
