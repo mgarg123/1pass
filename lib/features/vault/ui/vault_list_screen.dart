@@ -423,7 +423,18 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                     context: context,
                     builder: (ctx) => AlertDialog(
                       title: const Text('Delete Entry?'),
-                      content: Text('Are you sure you want to delete "${entry.title}"?'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Are you sure you want to delete "${entry.title}"?'),
+                          const SizedBox(height: 12),
+                          Text(
+                            'It can be restored from Settings > Recently Deleted within 30 days.',
+                            style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                          ),
+                        ],
+                      ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, false),

@@ -23,6 +23,7 @@ abstract class VaultRepository {
   Future<List<VaultEntry>> getAllEntries(EncryptionKey key);
   Future<void> saveEntry(VaultEntry entry, EncryptionKey key);
   Future<void> deleteEntry(String id);
+  Future<void> hardDeleteEntry(String id);
   Future<void> saveMeta(Salt salt, Argon2Params params, String verificationBlob);
   Future<LocalUserMeta?> getMeta();
   Future<void> clearVault();
@@ -145,6 +146,13 @@ class HiveVaultRepository implements VaultRepository {
       // Update autofill cache for native Android autofill service
       await AutofillCacheService.writeCache();
     }
+  }
+
+  @override
+  Future<void> hardDeleteEntry(String id) async {
+    final box = HiveSetup.vaultBox;
+    await box.delete(id);
+    await AutofillCacheService.writeCache();
   }
 
   @override

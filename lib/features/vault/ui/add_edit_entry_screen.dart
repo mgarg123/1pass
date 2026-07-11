@@ -286,7 +286,18 @@ class _AddEditEntryScreenState extends ConsumerState<AddEditEntryScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Entry?'),
-        content: const Text('Are you sure you want to delete this entry?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to delete this entry?'),
+            const SizedBox(height: 12),
+            Text(
+              'It can be restored from Settings > Recently Deleted within 30 days.',
+              style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+            ),
+          ],
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(

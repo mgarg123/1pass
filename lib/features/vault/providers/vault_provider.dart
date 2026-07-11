@@ -16,6 +16,14 @@ class VaultNotifier extends AsyncNotifier<List<VaultEntry>> {
 
     final repo = ref.read(vaultRepositoryProvider);
     final allEntries = await repo.getAllEntries(key);
+    
+    final now = DateTime.now();
+    for (final e in allEntries) {
+      if (e.isDeleted && now.difference(e.updatedAt).inDays >= 30) {
+        await repo.hardDeleteEntry(e.id);
+      }
+    }
+
     final entries = allEntries.where((e) => !e.isDeleted).toList();
     entries.sort((a, b) {
       if (a.isFavorite && !b.isFavorite) return -1;
@@ -45,6 +53,7 @@ class VaultNotifier extends AsyncNotifier<List<VaultEntry>> {
       
       // Reload list
       await _loadEntries();
+      ref.invalidate(trashProvider);
       
       // Trigger sync
       ref.read(syncProvider.notifier).triggerSync();
@@ -59,6 +68,7 @@ class VaultNotifier extends AsyncNotifier<List<VaultEntry>> {
       final repo = ref.read(vaultRepositoryProvider);
       await repo.deleteEntry(id);
       await _loadEntries();
+      ref.invalidate(trashProvider);
       
       // Trigger sync
       ref.read(syncProvider.notifier).triggerSync();
@@ -71,6 +81,75 @@ class VaultNotifier extends AsyncNotifier<List<VaultEntry>> {
     final updated = entry.copyWith(isFavorite: !entry.isFavorite);
     await saveEntry(updated);
   }
+
+  Future<void> restoreEntry(String id) async {
+    try {
+      final key = ref.read(authProvider).encryptionKey;
+      if (key == null) throw Exception('Not authenticated');
+
+      final repo = ref.read(vaultRepositoryProvider);
+      final allEntries = await repo.getAllEntries(key);
+      final entry = allEntries.firstWhere((e) => e.id == id);
+      
+      final updated = entry.copyWith(isDeleted: false, updatedAt: DateTime.now().toUtc());
+      await repo.saveEntry(updated, key);
+      
+      await _loadEntries();
+      ref.invalidate(trashProvider);
+      ref.read(syncProvider.notifier).triggerSync();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> hardDeleteEntry(String id) async {
+    try {
+      final repo = ref.read(vaultRepositoryProvider);
+      await repo.hardDeleteEntry(id);
+      
+      await _loadEntries();
+      ref.invalidate(trashProvider);
+      ref.read(syncProvider.notifier).triggerSync();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> emptyTrash() async {
+    try {
+      final key = ref.read(authProvider).encryptionKey;
+      if (key == null) throw Exception('Not authenticated');
+
+      final repo = ref.read(vaultRepositoryProvider);
+      final allEntries = await repo.getAllEntries(key);
+      final trashEntries = allEntries.where((e) => e.isDeleted);
+      
+      for (final e in trashEntries) {
+        await repo.hardDeleteEntry(e.id);
+      }
+      
+      await _loadEntries();
+      ref.invalidate(trashProvider);
+      ref.read(syncProvider.notifier).triggerSync();
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 
 final vaultProvider = AsyncNotifierProvider<VaultNotifier, List<VaultEntry>>(VaultNotifier.new);
+
+final trashProvider = FutureProvider<List<VaultEntry>>((ref) async {
+  final authState = ref.watch(authProvider);
+  final key = authState.encryptionKey;
+  if (key == null) return [];
+
+  final repo = ref.read(vaultRepositoryProvider);
+  final allEntries = await repo.getAllEntries(key);
+  
+  final now = DateTime.now();
+  final trashEntries = allEntries.where((e) => e.isDeleted && now.difference(e.updatedAt).inDays < 30).toList();
+  
+  trashEntries.sort((a, b) => b.updatedAt.compareTo(a.updatedAt)); // most recent first
+  return trashEntries;
+});

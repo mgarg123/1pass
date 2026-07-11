@@ -41,6 +41,13 @@ class SyncingVaultRepository implements VaultRepository {
   }
 
   @override
+  Future<void> hardDeleteEntry(String id) async {
+    await _localRepository.hardDeleteEntry(id);
+    // Remote syncing backend currently does not support hard deletes.
+    // It will remain soft-deleted remotely.
+  }
+
+  @override
   Future<void> saveMeta(Salt salt, Argon2Params params, String verificationBlob) async {
     await _localRepository.saveMeta(salt, params, verificationBlob);
   }
