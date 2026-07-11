@@ -54,6 +54,7 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
     final loginCount = entries.where((e) => e.type == EntryType.login).length;
     final cardCount = entries.where((e) => e.type == EntryType.creditCard).length;
     final totpCount = entries.where((e) => e.type == EntryType.authenticator).length;
+    final passkeyCount = entries.where((e) => e.passkeyPrivateKey != null && e.passkeyPrivateKey!.isNotEmpty).length;
     final totalCount = entries.length;
 
     Widget buildSyncIcon() {
@@ -76,7 +77,7 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
     }
 
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
@@ -176,6 +177,7 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                   tabs: [
                     Tab(text: 'All ($totalCount)'),
                     Tab(text: 'Logins ($loginCount)'),
+                    Tab(text: 'Passkeys ($passkeyCount)'),
                     Tab(text: 'Cards ($cardCount)'),
                     Tab(text: '2FA ($totpCount)'),
                   ],
@@ -234,10 +236,11 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
 
                     return TabBarView(
                       children: [
-                        _buildTabContent(context, dataEntries, null, primaryColor),
-                        _buildTabContent(context, dataEntries, EntryType.login, primaryColor),
-                        _buildTabContent(context, dataEntries, EntryType.creditCard, primaryColor),
-                        _buildTabContent(context, dataEntries, EntryType.authenticator, primaryColor),
+                        _buildTabContent(context, dataEntries, 'all', primaryColor),
+                        _buildTabContent(context, dataEntries, 'login', primaryColor),
+                        _buildTabContent(context, dataEntries, 'passkey', primaryColor),
+                        _buildTabContent(context, dataEntries, 'card', primaryColor),
+                        _buildTabContent(context, dataEntries, 'totp', primaryColor),
                       ],
                     );
                   },
@@ -307,9 +310,12 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
     );
   }
 
-  Widget _buildTabContent(BuildContext context, List<VaultEntry> entries, EntryType? filterType, Color primaryColor) {
+  Widget _buildTabContent(BuildContext context, List<VaultEntry> entries, String filterType, Color primaryColor) {
     List<VaultEntry> filtered = entries.where((e) {
-      if (filterType != null && e.type != filterType) return false;
+      if (filterType == 'login' && e.type != EntryType.login) return false;
+      if (filterType == 'card' && e.type != EntryType.creditCard) return false;
+      if (filterType == 'totp' && e.type != EntryType.authenticator) return false;
+      if (filterType == 'passkey' && (e.passkeyPrivateKey == null || e.passkeyPrivateKey!.isEmpty)) return false;
       final q = _searchQuery;
       final matchesSearch = q.isEmpty ||
           e.title.toLowerCase().contains(q) ||
@@ -391,7 +397,15 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                 if (direction == DismissDirection.startToEnd) {
                   // Swipe Right -> Copy
                   if (entry.type == EntryType.login) {
-                    _copyToClipboard(entry.password, 'Password');
+                    if (entry.password.isNotEmpty) {
+                      _copyToClipboard(entry.password, 'Password');
+                    } else if (entry.username.isNotEmpty) {
+                      _copyToClipboard(entry.username, 'Username');
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Nothing to copy')),
+                      );
+                    }
                   } else if (entry.type == EntryType.authenticator && entry.totpSecret != null) {
                     final code = TotpUtil.generateCode(entry.totpSecret!);
                     _copyToClipboard(code, '2FA Code');
@@ -478,17 +492,40 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
                     ),
                     subtitle: entry.type == EntryType.authenticator 
                       ? (entry.totpSecret != null ? TotpLiveSubtitle(secret: entry.totpSecret!) : const Text('Authenticator', style: TextStyle(color: Colors.white54)))
-                      : Text(
-                          entry.type == EntryType.creditCard ? (entry.cardNumber != null && entry.cardNumber!.replaceAll(RegExp(r'\s+'), '').length >= 4 ? '•••• ${entry.cardNumber!.replaceAll(RegExp(r'\s+'), '').substring(entry.cardNumber!.replaceAll(RegExp(r'\s+'), '').length - 4)}' : 'Credit Card')
-                          : entry.username, 
-                          style: const TextStyle(color: Colors.white54)
-                        ),
-                    trailing: entry.type == EntryType.login 
+                      : entry.type == EntryType.creditCard
+                          ? Text(entry.cardNumber != null && entry.cardNumber!.replaceAll(RegExp(r'\s+'), '').length >= 4 ? '•••• ${entry.cardNumber!.replaceAll(RegExp(r'\s+'), '').substring(entry.cardNumber!.replaceAll(RegExp(r'\s+'), '').length - 4)}' : 'Credit Card', style: const TextStyle(color: Colors.white54))
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(child: Text(entry.username, style: const TextStyle(color: Colors.white54), overflow: TextOverflow.ellipsis)),
+                                if (entry.passkeyPrivateKey != null && entry.passkeyPrivateKey!.isNotEmpty) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(color: Colors.blueAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+                                    child: const Row(
+                                      children: [
+                                        Icon(Icons.key, size: 12, color: Colors.blueAccent),
+                                        SizedBox(width: 4),
+                                        Text('Passkey', style: TextStyle(fontSize: 10, color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                    trailing: entry.type == EntryType.login && entry.password.isNotEmpty
                         ? IconButton(
                             icon: const Icon(Icons.copy, color: Colors.white38),
                             tooltip: 'Copy Password',
                             onPressed: () => _copyToClipboard(entry.password, 'Password'),
                           )
+                        : entry.type == EntryType.login && entry.username.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.copy, color: Colors.white38),
+                                tooltip: 'Copy Username',
+                                onPressed: () => _copyToClipboard(entry.username, 'Username'),
+                              )
                         : entry.type == EntryType.authenticator && entry.totpSecret != null
                             ? IconButton(
                                 icon: const Icon(Icons.copy, color: Colors.white38),

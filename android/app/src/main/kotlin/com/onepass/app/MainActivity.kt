@@ -37,6 +37,27 @@ class MainActivity : FlutterFragmentActivity() {
                 } else {
                     result.success(false)
                 }
+            } else if (call.method == "isCredentialProviderAvailable") {
+                result.success(Build.VERSION.SDK_INT >= 34)
+            } else if (call.method == "requestSetCredentialProvider") {
+                if (Build.VERSION.SDK_INT >= 34) { // Android 14+
+                    try {
+                        val intent = Intent(Settings.ACTION_CREDENTIAL_PROVIDER)
+                        intent.data = android.net.Uri.parse("package:$packageName")
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        try {
+                            // Fallback without package URI if the first one fails
+                            startActivity(Intent(Settings.ACTION_CREDENTIAL_PROVIDER))
+                            result.success(true)
+                        } catch (e2: Exception) {
+                            result.error("INTENT_FAILED", "Could not launch Credential Provider Settings", e2.message)
+                        }
+                    }
+                } else {
+                    result.success(false)
+                }
             } else {
                 result.notImplemented()
             }

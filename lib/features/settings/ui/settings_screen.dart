@@ -74,11 +74,38 @@ class _CustomDivider extends StatelessWidget {
   }
 }
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _showPasskeysOption = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPasskeySupport();
+  }
+
+  Future<void> _checkPasskeySupport() async {
+    const channel = MethodChannel('com.example.onepass/autofill');
+    try {
+      final isAvailable = await channel.invokeMethod<bool>('isCredentialProviderAvailable');
+      if (mounted) {
+        setState(() {
+          _showPasskeysOption = isAvailable ?? false;
+        });
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final autoLockSeconds = ref.watch(autoLockProvider);
     final biometricState = ref.watch(biometricProvider);
     final isAndroid = Platform.isAndroid;
@@ -170,6 +197,38 @@ class SettingsScreen extends ConsumerWidget {
                     }
                   },
                 ),
+                if (_showPasskeysOption) ...[
+                  const _CustomDivider(),
+                  ListTile(
+                    leading: Icon(Icons.key, color: Colors.grey[400]),
+                    title: const Text('Enable Passkeys'),
+                    subtitle: const Text('Android 14+ required', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.white54)),
+                    trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                    onTap: () async {
+                      if (!ref.read(biometricProvider).isEnabled) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please enable Biometric Unlock first')),
+                        );
+                        return;
+                      }
+                      const channel = MethodChannel('com.example.onepass/autofill');
+                      try {
+                        final success = await channel.invokeMethod<bool>('requestSetCredentialProvider');
+                        if (success == false && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Passkeys require Android 14+')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to open Passkey settings: $e')),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ],
               ],
             ],
           ).animate().fadeIn(delay: 50.ms).slideY(begin: 0.05, end: 0),
