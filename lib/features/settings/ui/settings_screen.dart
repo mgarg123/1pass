@@ -14,6 +14,7 @@ import 'change_master_password_screen.dart';
 import 'import_backup_screen.dart';
 import '../providers/health_settings_provider.dart';
 import '../../vault/ui/password_health_screen.dart';
+import '../../vault/ui/trash_screen.dart';
 import '../../../core/config/storage_mode.dart';
 import '../../../core/sync/sync_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -281,6 +282,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const ChangeMasterPasswordScreen()),
+                  );
+                },
+              ),
+              const _CustomDivider(),
+              ListTile(
+                leading: Icon(Icons.delete_outline, color: Colors.grey[400]),
+                title: const Text('Recently Deleted'),
+                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const TrashScreen()),
                   );
                 },
               ),
