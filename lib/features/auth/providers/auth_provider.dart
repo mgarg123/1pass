@@ -8,15 +8,46 @@ import '../../../core/constants/crypto_constants.dart';
 import '../../../core/storage/vault_repository.dart';
 import '../../../core/storage/syncing_vault_repository.dart';
 import '../../../core/sync/sync_provider.dart';
+import '../../../core/sync/sync_backend.dart';
+import '../../../core/sync/supabase_sync_backend.dart';
+import '../../../core/sync/generic_rest_sync_backend.dart';
 import '../../../core/storage/hive_setup.dart';
+import '../../../core/config/storage_mode.dart';
 import 'biometric_provider.dart';
 
 final cryptoServiceProvider = Provider((ref) => CryptoService());
 
+/// Provides the appropriate SyncBackend based on the current storage mode.
+/// Returns null for local-only mode (no sync needed).
+final syncBackendProvider = Provider<SyncBackend?>((ref) {
+  final config = ref.watch(storageModeProvider);
+  if (config == null) return null;
+
+  switch (config.mode) {
+    case StorageMode.localOnly:
+      return null;
+    case StorageMode.cloudSync:
+      return SupabaseSyncBackend(Supabase.instance.client);
+    case StorageMode.byodSync:
+      if (config.byodUrl == null || config.byodApiKey == null) return null;
+      return GenericRestSyncBackend(
+        baseUrl: config.byodUrl!,
+        apiKey: config.byodApiKey!,
+      );
+  }
+});
+
+/// Provides the VaultRepository — either local-only or syncing,
+/// depending on the current storage mode.
 final vaultRepositoryProvider = Provider<VaultRepository>((ref) {
   final cryptoService = ref.watch(cryptoServiceProvider);
   final localRepo = HiveVaultRepository(cryptoService);
-  return SyncingVaultRepository(localRepo, cryptoService, Supabase.instance.client);
+  final syncBackend = ref.watch(syncBackendProvider);
+
+  if (syncBackend == null) {
+    return localRepo; // local-only mode
+  }
+  return SyncingVaultRepository(localRepo, cryptoService, syncBackend);
 });
 
 class AuthState {
@@ -46,6 +77,8 @@ class AuthState {
 class AuthNotifier extends Notifier<AuthState> {
   CryptoService get _cryptoService => ref.read(cryptoServiceProvider);
   VaultRepository get _vaultRepository => ref.read(vaultRepositoryProvider);
+  SyncBackend? get _syncBackend => ref.read(syncBackendProvider);
+  StorageModeConfig? get _modeConfig => ref.read(storageModeProvider);
 
   @override
   AuthState build() {
@@ -57,7 +90,25 @@ class AuthNotifier extends Notifier<AuthState> {
     return meta != null;
   }
   
-  bool get isSupabaseAuthenticated => Supabase.instance.client.auth.currentUser != null;
+  /// Whether the remote auth layer is satisfied.
+  /// - Local-only: always true (no remote auth needed)
+  /// - Cloud sync: true if Supabase session exists
+  /// - BYOD: true if API key is configured
+  bool get isRemoteAuthenticated {
+    final config = _modeConfig;
+    if (config == null) return false; // no mode selected yet
+
+    switch (config.mode) {
+      case StorageMode.localOnly:
+        return true;
+      case StorageMode.cloudSync:
+        return Supabase.instance.client.auth.currentUser != null;
+      case StorageMode.byodSync:
+        return config.byodApiKey != null && config.byodApiKey!.isNotEmpty;
+    }
+  }
+
+  // ── Supabase Auth (cloud sync mode only) ────────────────────
 
   Future<void> supabaseSignUp(String email, String password) async {
     state = state.copyWith(isAuthenticating: true, clearError: true);
@@ -98,6 +149,8 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  // ── Vault Setup & Unlock (all modes) ────────────────────────
+
   Future<void> setupVault(String masterPassword) async {
     state = state.copyWith(isAuthenticating: true, clearError: true);
     try {
@@ -119,14 +172,14 @@ class AuthNotifier extends Notifier<AuthState> {
       await _vaultRepository.clearVault();
       await _vaultRepository.saveMeta(salt, params, verificationBlobStr);
       
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId != null) {
-          await Supabase.instance.client.from('user_vault_meta').upsert({
-            'user_id': userId,
-            'salt': salt.toBase64(),
-            'argon2_params': params.toJson(),
-            'verification_blob': verificationBlobStr,
-          });
+      // Upload meta to remote backend if sync is enabled
+      final backend = _syncBackend;
+      if (backend != null && backend.isReady) {
+        await backend.upsertVaultMeta(
+          salt: salt.toBase64(),
+          argon2Params: params.toJson(),
+          verificationBlob: verificationBlobStr,
+        );
       }
       
       state = state.copyWith(encryptionKey: key, isAuthenticating: false);
@@ -140,28 +193,29 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       LocalUserMeta? meta = await _vaultRepository.getMeta();
       
+      // If no local meta, try fetching from remote backend
       if (meta == null) {
-        final userId = Supabase.instance.client.auth.currentUser?.id;
-        if (userId == null) {
-            throw Exception('Please sign in to Supabase first.');
+        final backend = _syncBackend;
+        if (backend != null && backend.isReady) {
+          final remoteMeta = await backend.getVaultMeta();
+
+          if (remoteMeta == null) {
+            throw Exception('No vault setup found. Please set up your vault.');
+          }
+
+          final salt = Salt.fromBase64(remoteMeta['salt'] as String);
+          final params = Argon2Params.fromJson(
+            Map<String, dynamic>.from(remoteMeta['argon2_params'] as Map),
+          );
+          final verificationBlob = remoteMeta['verification_blob'] as String;
+
+          await _vaultRepository.saveMeta(salt, params, verificationBlob);
+          meta = LocalUserMeta(salt: salt, argon2Params: params, verificationBlob: verificationBlob);
+        } else if (_modeConfig?.isLocal == true) {
+          throw Exception('No vault setup found. Please set up your vault.');
+        } else {
+          throw Exception('No vault setup found and remote backend is not available.');
         }
-
-        final res = await Supabase.instance.client
-            .from('user_vault_meta')
-            .select()
-            .eq('user_id', userId)
-            .maybeSingle();
-
-        if (res == null) {
-          throw Exception('No vault setup found for this user. Please set up your vault.');
-        }
-
-        final salt = Salt.fromBase64(res['salt'] as String);
-        final params = Argon2Params.fromJson(res['argon2_params'] as Map<String, dynamic>);
-        final verificationBlob = res['verification_blob'] as String;
-
-        await _vaultRepository.saveMeta(salt, params, verificationBlob);
-        meta = LocalUserMeta(salt: salt, argon2Params: params, verificationBlob: verificationBlob);
       }
       
       final key = await _cryptoService.deriveKey(password: masterPassword, salt: meta.salt);
@@ -190,7 +244,11 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(encryptionKey: key, isAuthenticating: false);
       
       ref.read(biometricProvider.notifier).storeEncryptionKey(key);
-      ref.read(syncProvider.notifier).triggerSync();
+
+      // Only trigger sync if we have a sync backend
+      if (_syncBackend != null) {
+        ref.read(syncProvider.notifier).triggerSync();
+      }
     } catch (e) {
       state = state.copyWith(isAuthenticating: false, errorMessage: e.toString().replaceAll('Exception: ', ''));
     }
@@ -204,7 +262,12 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<void> logout() async {
     state.encryptionKey?.clear();
     await ref.read(biometricProvider.notifier).clearStoredKey();
-    await Supabase.instance.client.auth.signOut();
+
+    // Sign out of Supabase only in cloud sync mode
+    if (_modeConfig?.isCloud == true) {
+      await Supabase.instance.client.auth.signOut();
+    }
+
     state = state.copyWith(clearKey: true);
   }
 
@@ -221,7 +284,10 @@ class AuthNotifier extends Notifier<AuthState> {
       }
       
       state = state.copyWith(encryptionKey: key, isAuthenticating: false);
-      ref.read(syncProvider.notifier).triggerSync();
+
+      if (_syncBackend != null) {
+        ref.read(syncProvider.notifier).triggerSync();
+      }
     } catch (e) {
       state = state.copyWith(isAuthenticating: false, errorMessage: e.toString().replaceAll('Exception: ', ''));
     }
@@ -285,16 +351,44 @@ class AuthNotifier extends Notifier<AuthState> {
         });
       }
 
-      // 5. Upload via RPC
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) throw Exception('Not signed in to Supabase.');
-      
-      await Supabase.instance.client.rpc('update_master_password', params: {
-        'p_salt': newSalt.toBase64(),
-        'p_argon2_params': params.toJson(),
-        'p_verification_blob': newVerificationBlobStr,
-        'p_entries': rpcEntries,
-      });
+      // 5. Upload to remote backend (if available)
+      final backend = _syncBackend;
+      if (backend != null && backend.isReady) {
+        if (backend.supportsAtomicRotation) {
+          // Atomic rotation via server-side transaction
+          await backend.rotateMasterPassword(
+            salt: newSalt.toBase64(),
+            argon2Params: params.toJson(),
+            verificationBlob: newVerificationBlobStr,
+            entries: rpcEntries,
+          );
+        } else {
+          // Fallback: update meta first, then push entries one by one
+          await backend.upsertVaultMeta(
+            salt: newSalt.toBase64(),
+            argon2Params: params.toJson(),
+            verificationBlob: newVerificationBlobStr,
+          );
+          // Push re-encrypted entries
+          final pushEntries = <Map<String, dynamic>>[];
+          for (int i = 0; i < entries.length; i++) {
+            final entry = entries[i];
+            final rpcEntry = rpcEntries[i];
+            final blob = EncryptedBlob.fromStorageString(rpcEntry['encryptedData']);
+            pushEntries.add({
+              'id': entry.id,
+              'encrypted_data': rpcEntry['encryptedData'],
+              'nonce': blob.nonce.toBase64(),
+              'created_at': entry.createdAt.toIso8601String(),
+              'updated_at': rpcEntry['updatedAt'],
+              'is_deleted': entry.isDeleted,
+            });
+          }
+          if (pushEntries.isNotEmpty) {
+            await backend.pushEntries(pushEntries);
+          }
+        }
+      }
 
       // 6. Local commit
       await _vaultRepository.saveMeta(newSalt, params, newVerificationBlobStr);
@@ -342,21 +436,16 @@ final hasAccountProvider = FutureProvider<bool>((ref) async {
     return true;
   }
 
-  // 2. Check Supabase for existing vault meta (first login on new device)
-  final userId = Supabase.instance.client.auth.currentUser?.id;
-  if (userId != null) {
+  // 2. Check remote backend for existing vault meta (first login on new device)
+  final syncBackend = ref.read(syncBackendProvider);
+  if (syncBackend != null && syncBackend.isReady) {
     try {
-      final res = await Supabase.instance.client
-          .from('user_vault_meta')
-          .select('user_id') // We only need to check if it exists
-          .eq('user_id', userId)
-          .maybeSingle();
-          
-      if (res != null) {
+      final remoteMeta = await syncBackend.getVaultMeta();
+      if (remoteMeta != null) {
         return true;
       }
     } catch (_) {
-      // Fallback to false if network error, though unlock will also fail if offline and no local DB
+      // Fallback to false if network error
     }
   }
 

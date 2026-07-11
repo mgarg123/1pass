@@ -14,6 +14,8 @@ import 'change_master_password_screen.dart';
 import 'import_backup_screen.dart';
 import '../providers/health_settings_provider.dart';
 import '../../vault/ui/password_health_screen.dart';
+import '../../../core/config/storage_mode.dart';
+import '../../../core/sync/sync_provider.dart';
 
 class _SectionHeader extends StatelessWidget {
   final String title;
@@ -88,6 +90,10 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 40),
         children: [
+          // ── Storage Mode Section ──
+          const _SectionHeader('Storage Mode').animate().fadeIn(delay: 25.ms),
+          _buildStorageModeSection(context, ref).animate().fadeIn(delay: 25.ms).slideY(begin: 0.05, end: 0),
+
           const _SectionHeader('Security & Authentication').animate().fadeIn(delay: 50.ms),
           _SectionContainer(
             children: [
@@ -284,6 +290,153 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.05, end: 0),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStorageModeSection(BuildContext context, WidgetRef ref) {
+    final modeConfig = ref.watch(storageModeProvider);
+    final syncState = ref.watch(syncProvider);
+
+    String modeLabel;
+    IconData modeIcon;
+    Color modeColor;
+
+    switch (modeConfig?.mode) {
+      case StorageMode.localOnly:
+        modeLabel = 'Local Only';
+        modeIcon = Icons.smartphone;
+        modeColor = const Color(0xFF10B981);
+        break;
+      case StorageMode.cloudSync:
+        modeLabel = 'Cloud Sync';
+        modeIcon = Icons.cloud_sync;
+        modeColor = const Color(0xFF8B5CF6);
+        break;
+      case StorageMode.byodSync:
+        modeLabel = 'Bring Your Own DB';
+        modeIcon = Icons.dns_outlined;
+        modeColor = const Color(0xFFF59E0B);
+        break;
+      default:
+        modeLabel = 'Not configured';
+        modeIcon = Icons.help_outline;
+        modeColor = Colors.grey;
+    }
+
+    String syncLabel;
+    Color syncColor;
+    switch (syncState) {
+      case SyncState.synced:
+        syncLabel = 'Synced';
+        syncColor = const Color(0xFF10B981);
+        break;
+      case SyncState.syncing:
+        syncLabel = 'Syncing...';
+        syncColor = const Color(0xFF8B5CF6);
+        break;
+      case SyncState.offline:
+        syncLabel = 'Offline';
+        syncColor = Colors.orangeAccent;
+        break;
+      case SyncState.failed:
+        syncLabel = 'Sync failed';
+        syncColor = Colors.redAccent;
+        break;
+      case SyncState.disabled:
+        syncLabel = 'No sync';
+        syncColor = Colors.white38;
+        break;
+    }
+
+    return _SectionContainer(
+      children: [
+        ListTile(
+          leading: Icon(modeIcon, color: modeColor),
+          title: Text(modeLabel),
+          subtitle: modeConfig?.isByod == true
+              ? Text(
+                  modeConfig!.byodUrl ?? '',
+                  style: const TextStyle(fontSize: 11, color: Colors.white38),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                )
+              : null,
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: syncColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              syncLabel,
+              style: TextStyle(color: syncColor, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+        const _CustomDivider(),
+        ListTile(
+          leading: Icon(Icons.swap_horiz, color: Colors.grey[400]),
+          title: const Text('Switch Storage Mode'),
+          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+          onTap: () => _showSwitchModeDialog(context, ref),
+        ),
+        if (modeConfig?.isSyncEnabled == true) ...[
+          const _CustomDivider(),
+          ListTile(
+            leading: Icon(Icons.sync, color: Colors.grey[400]),
+            title: const Text('Sync Now'),
+            trailing: syncState == SyncState.syncing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.chevron_right, color: Colors.grey),
+            onTap: syncState == SyncState.syncing
+                ? null
+                : () => ref.read(syncProvider.notifier).triggerSync(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _showSwitchModeDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1C1E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Switch Storage Mode'),
+        content: const Text(
+          'Switching modes requires resetting the app flow. '
+          'Your local vault data will be preserved.\n\n'
+          'You will be returned to the mode selection screen.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await ref.read(storageModeProvider.notifier).clear();
+              // Lock vault and go back to first screen
+              ref.read(authProvider.notifier).lockVault();
+              if (context.mounted) {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orangeAccent,
+              foregroundColor: Colors.black,
+            ),
+            child: const Text('Switch Mode'),
+          ),
         ],
       ),
     );

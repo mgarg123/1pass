@@ -4,23 +4,35 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/storage/hive_setup.dart';
+import 'core/config/storage_mode.dart';
 import 'features/auth/ui/auth_gate.dart';
 import 'core/storage/autofill_cache_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Hive
+  // Initialize Hive (must be first — config is stored here)
   await HiveSetup.init();
   
-  // Load environment variables
-  await dotenv.load(fileName: ".env");
+  // Load environment variables (may contain Supabase credentials)
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (_) {
+    // .env file may not exist in local-only mode — that's fine
+  }
 
-  // Initialize Supabase
-  await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL'] ?? '',
-    anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
-  );
+  // Only initialize Supabase if the user has chosen cloud sync mode
+  final modeConfig = StorageModeConfig.load();
+  if (modeConfig == null || modeConfig.isCloud) {
+    final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
+    final supabaseKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+    if (supabaseUrl.isNotEmpty && supabaseKey.isNotEmpty) {
+      await Supabase.initialize(
+        url: supabaseUrl,
+        anonKey: supabaseKey,
+      );
+    }
+  }
 
   // Process any pending autofill saves queued by SaveAuthActivity
   await AutofillCacheService.processPendingSaves();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../../core/config/storage_mode.dart';
 
 class SupabaseAuthScreen extends ConsumerStatefulWidget {
   const SupabaseAuthScreen({super.key});
@@ -116,6 +117,19 @@ class _SupabaseAuthScreenState extends ConsumerState<SupabaseAuthScreen> {
                   });
                 },
                 child: Text(_isLogin ? 'Don\'t have an account? Sign Up' : 'Already have an account? Sign In'),
+              ),
+              const SizedBox(height: 24),
+              const Divider(color: Colors.white12),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () async {
+                  await ref.read(storageModeProvider.notifier).clear();
+                },
+                icon: const Icon(Icons.arrow_back, size: 16, color: Colors.white38),
+                label: const Text(
+                  'Change setup mode',
+                  style: TextStyle(color: Colors.white38),
+                ),
               ),
               ].animate(interval: 50.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOut),
             ),

@@ -70,6 +70,8 @@ class _VaultListScreenState extends ConsumerState<VaultListScreen> {
           return const Icon(Icons.cloud_off, color: Colors.white38, size: 20);
         case SyncState.failed:
           return const Icon(Icons.cloud_off, color: Colors.redAccent, size: 20);
+        case SyncState.disabled:
+          return const Icon(Icons.smartphone, color: Colors.white38, size: 20);
       }
     }
 
