@@ -7,6 +7,9 @@ import 'supabase_auth_screen.dart';
 import '../../vault/ui/vault_list_screen.dart';
 import '../../../core/updater/update_service.dart';
 import '../../../core/updater/update_dialog.dart';
+import '../../../core/config/storage_mode.dart';
+import '../../onboarding/ui/welcome_screen.dart';
+import '../../onboarding/ui/mode_selection_screen.dart';
 
 import '../../settings/providers/auto_lock_provider.dart';
 
@@ -18,6 +21,8 @@ class AuthGate extends ConsumerStatefulWidget {
 }
 
 class _AuthGateState extends ConsumerState<AuthGate> {
+  bool _showWelcome = true;
+
   @override
   void initState() {
     super.initState();
@@ -34,8 +39,24 @@ class _AuthGateState extends ConsumerState<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
+    final modeConfig = ref.watch(storageModeProvider);
     final authState = ref.watch(authProvider);
 
+    // ── Step 0: No mode selected → Show Welcome then Mode selection ──
+    if (modeConfig == null) {
+      if (_showWelcome) {
+        return WelcomeScreen(
+          onGetStarted: () {
+            setState(() {
+              _showWelcome = false;
+            });
+          },
+        );
+      }
+      return const ModeSelectionScreen();
+    }
+
+    // ── Step 1: Vault already unlocked → Show vault ──
     if (authState.isAuthenticated) {
       return Listener(
         behavior: HitTestBehavior.translucent,
@@ -44,12 +65,26 @@ class _AuthGateState extends ConsumerState<AuthGate> {
       );
     }
 
-    final isSupabaseAuth = ref.read(authProvider.notifier).isSupabaseAuthenticated;
+    // ── Step 2: Mode-specific remote auth ──
+    switch (modeConfig.mode) {
+      case StorageMode.cloudSync:
+        // Cloud mode requires Supabase authentication first
+        final isSupabaseAuth = ref.read(authProvider.notifier).isRemoteAuthenticated;
+        if (!isSupabaseAuth) {
+          return const SupabaseAuthScreen();
+        }
+        break;
 
-    if (!isSupabaseAuth) {
-      return const SupabaseAuthScreen();
+      case StorageMode.localOnly:
+        // No remote auth needed — fall through to master password
+        break;
+
+      case StorageMode.byodSync:
+        // BYOD auth is via stored API key — fall through to master password
+        break;
     }
 
+    // ── Step 3: Check for existing vault → Login or Signup ──
     final hasAccountAsync = ref.watch(hasAccountProvider);
 
     return hasAccountAsync.when(

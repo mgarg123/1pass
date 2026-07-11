@@ -4,12 +4,14 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/vault/providers/vault_provider.dart';
 import '../storage/syncing_vault_repository.dart';
+import '../config/storage_mode.dart';
 
 enum SyncState {
   synced,
   syncing,
   offline,
   failed,
+  disabled, // local-only mode — sync not applicable
 }
 
 class SyncNotifier extends Notifier<SyncState> {
@@ -18,6 +20,12 @@ class SyncNotifier extends Notifier<SyncState> {
 
   @override
   SyncState build() {
+    // If local-only mode, sync is permanently disabled
+    final config = ref.read(storageModeProvider);
+    if (config == null || config.isLocal) {
+      return SyncState.disabled;
+    }
+
     _initConnectivity();
     return SyncState.synced; // default assumption until first check
   }
@@ -44,6 +52,13 @@ class SyncNotifier extends Notifier<SyncState> {
   }
 
   Future<void> triggerSync() async {
+    // Skip sync for local-only mode
+    final config = ref.read(storageModeProvider);
+    if (config == null || config.isLocal) {
+      state = SyncState.disabled;
+      return;
+    }
+
     if (!_isOnline) {
       state = SyncState.offline;
       return;

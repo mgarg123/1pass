@@ -1,0 +1,6 @@
+{
+  "name": "onepass-byod-worker",
+  "version": "1.0.0",
+  "description": "OnePass BYOD Reference Implementation — Cloudflare Worker + D1",
+  "main": "src/worker.js"
+}

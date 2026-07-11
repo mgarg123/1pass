@@ -1,18 +1,23 @@
 import 'dart:convert';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/vault/models/vault_entry.dart';
 import '../crypto/crypto_models.dart';
 import '../crypto/crypto_service.dart';
 import 'vault_repository.dart';
 import 'hive_setup.dart';
 import 'autofill_cache_service.dart';
+import '../sync/sync_backend.dart';
 
+/// A VaultRepository that wraps a local repository and syncs changes
+/// to a remote backend via the [SyncBackend] abstraction.
+///
+/// This works identically regardless of whether the backend is Supabase,
+/// a BYOD REST API, or any other implementation.
 class SyncingVaultRepository implements VaultRepository {
   final VaultRepository _localRepository;
   final CryptoService _cryptoService;
-  final SupabaseClient _supabase;
+  final SyncBackend _syncBackend;
 
-  SyncingVaultRepository(this._localRepository, this._cryptoService, this._supabase);
+  SyncingVaultRepository(this._localRepository, this._cryptoService, this._syncBackend);
 
   @override
   Future<List<VaultEntry>> getAllEntries(EncryptionKey key) {
@@ -55,23 +60,15 @@ class SyncingVaultRepository implements VaultRepository {
     await HiveSetup.pendingSyncBox.put(id, true);
   }
 
-  /// Syncs data with Supabase.
+  /// Syncs data with the remote backend.
   Future<void> sync(EncryptionKey key) async {
-    if (_supabase.auth.currentUser == null) return;
-
-    final userId = _supabase.auth.currentUser!.id;
+    if (!_syncBackend.isReady) return;
 
     // 1. Pull changes from remote
     final lastSyncStr = HiveSetup.metaBox.get('last_sync_time') as String?;
     DateTime? lastSyncTime = lastSyncStr != null ? DateTime.parse(lastSyncStr) : null;
 
-    var query = _supabase.from('vault_entries').select();
-    if (lastSyncTime != null) {
-      query = query.gt('updated_at', lastSyncTime.toUtc().toIso8601String());
-    }
-
-    final remoteEntries = await query;
-    bool hasLocalChanges = false;
+    final remoteEntries = await _syncBackend.pullEntries(since: lastSyncTime);
     
     // Resolve conflicts and save remote entries locally
     final localEntriesBox = HiveSetup.vaultBox;
@@ -87,34 +84,15 @@ class SyncingVaultRepository implements VaultRepository {
         if (localUpdatedAt.isAfter(remoteUpdatedAt)) {
           // Local is newer, let it be pushed
           await _queueForSync(id);
-          hasLocalChanges = true;
           continue;
         }
       }
 
       // Remote is newer or entry doesn't exist locally
       final encryptedDataStr = remoteEntry['encrypted_data'] as String;
-      final nonceStr = remoteEntry['nonce'] as String;
-      
-      // We need to parse our custom format vs Supabase schema.
-      // Wait, in Phase 2 EncryptedBlob has nonce+cipherText+mac.
-      // Supabase has encrypted_data and nonce separate.
-      // Let's structure the blob to fit or modify how we save to Supabase.
-      // For now, assume remote uses 'encrypted_data' as base64(ciphertext+mac) and 'nonce' as base64(nonce).
-      // Let's adjust this to fit our EncryptedBlob format (nonce:ciphertext:mac).
-      // Actually, since we control both, when we push, we can just split our blob.
-      
-      // Reconstruct blob from remote:
-      // Our EncryptedBlob requires cipherText and mac. The cryptography package's cipherText includes MAC usually, 
-      // but EncryptedBlob separates them. We will serialize/deserialize correctly below.
-      // Wait, EncryptedBlob.fromStorageString expects nonce:cipherText:mac.
-      // Let's just use the EncryptedBlob storage string in `encrypted_data` and ignore `nonce` column in Supabase, 
-      // or populate it for schema compliance but use `encrypted_data` for the full string.
-      // Let's use `encrypted_data` for the full `blob.toStorageString()` to simplify.
-      
-      final blob = EncryptedBlob.fromStorageString(encryptedDataStr);
       
       try {
+        final blob = EncryptedBlob.fromStorageString(encryptedDataStr);
         final decryptedBytes = await _cryptoService.decrypt(blob, key);
         final decryptedJson = jsonDecode(utf8.decode(decryptedBytes)) as Map<String, dynamic>;
         
@@ -132,13 +110,15 @@ class SyncingVaultRepository implements VaultRepository {
         // Remove from sync queue if it was there
         await HiveSetup.pendingSyncBox.delete(id);
       } catch (e) {
-        // Decrypt error ignored silently
-        // Handle decrypt failure? Maybe skip it.
+        // Decrypt error — skip this entry silently
       }
     }
 
     // 2. Push local pending changes to remote
     final pendingKeys = HiveSetup.pendingSyncBox.keys.toList();
+    final entriesToPush = <Map<String, dynamic>>[];
+    final pushedIds = <dynamic>[];
+
     for (final id in pendingKeys) {
       final localData = localEntriesBox.get(id) as Map?;
       if (localData == null) {
@@ -149,17 +129,22 @@ class SyncingVaultRepository implements VaultRepository {
       final encryptedDataStr = localData['encryptedData'] as String;
       final blob = EncryptedBlob.fromStorageString(encryptedDataStr);
 
-      await _supabase.from('vault_entries').upsert({
+      entriesToPush.add({
         'id': id,
-        'user_id': userId,
-        'encrypted_data': encryptedDataStr, // Includes nonce:ciphertext:mac
-        'nonce': blob.nonce.toBase64(),     // Required by schema
+        'encrypted_data': encryptedDataStr,
+        'nonce': blob.nonce.toBase64(),
         'created_at': localData['createdAt'],
         'updated_at': localData['updatedAt'],
         'is_deleted': localData['isDeleted'],
       });
-      
-      await HiveSetup.pendingSyncBox.delete(id);
+      pushedIds.add(id);
+    }
+
+    if (entriesToPush.isNotEmpty) {
+      await _syncBackend.pushEntries(entriesToPush);
+      for (final id in pushedIds) {
+        await HiveSetup.pendingSyncBox.delete(id);
+      }
     }
     
     // Update last sync time
