@@ -79,17 +79,23 @@ class AutofillServiceImpl : AutofillService() {
         autofillIds.addAll(usernameIds)
         autofillIds.addAll(passwordIds)
 
-        // Determine required IDs for SaveInfo: password is required, username is optional
+        // Determine save data type and required IDs based on which fields are present.
+        // Multi-step logins may only have one field type per page.
+        val saveType = when {
+            usernameIds.isNotEmpty() && passwordIds.isNotEmpty() ->
+                SaveInfo.SAVE_DATA_TYPE_USERNAME or SaveInfo.SAVE_DATA_TYPE_PASSWORD
+            passwordIds.isNotEmpty() -> SaveInfo.SAVE_DATA_TYPE_PASSWORD
+            else -> SaveInfo.SAVE_DATA_TYPE_USERNAME
+        }
+
         val requiredIds = if (passwordIds.isNotEmpty()) {
             passwordIds.toTypedArray()
         } else {
             usernameIds.toTypedArray()
         }
 
-        val saveInfoBuilder = SaveInfo.Builder(
-            SaveInfo.SAVE_DATA_TYPE_USERNAME or SaveInfo.SAVE_DATA_TYPE_PASSWORD,
-            requiredIds
-        ).setFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
+        val saveInfoBuilder = SaveInfo.Builder(saveType, requiredIds)
+            .setFlags(SaveInfo.FLAG_SAVE_ON_ALL_VIEWS_INVISIBLE)
 
         // Set username IDs as optional if password IDs are the required ones
         if (passwordIds.isNotEmpty() && usernameIds.isNotEmpty()) {

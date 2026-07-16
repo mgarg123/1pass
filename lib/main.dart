@@ -48,8 +48,33 @@ void main() async {
 }
 
 
-class OnePassApp extends StatelessWidget {
+class OnePassApp extends StatefulWidget {
   const OnePassApp({super.key});
+
+  @override
+  State<OnePassApp> createState() => _OnePassAppState();
+}
+
+class _OnePassAppState extends State<OnePassApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Process any pending autofill saves when app comes to foreground
+      AutofillCacheService.processPendingSaves();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
