@@ -33,7 +33,7 @@ void main(List<String> args) {
   print('Committing and tagging as $versionTag...');
 
   _runCommand('git', ['add', 'pubspec.yaml']);
-  _runCommand('git', ['commit', '-m', 'chore: release $versionTag']);
+  _runCommand('git', ['commit', '--allow-empty', '-m', 'chore: release $versionTag']);
   _runCommand('git', ['tag', versionTag]);
 
   print('Pushing to origin...');
