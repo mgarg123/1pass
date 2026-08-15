@@ -32,6 +32,17 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Create .env from secrets
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.DOTENV }}" ]; then
+            echo "${{ secrets.DOTENV }}" > .env
+          else
+            echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+            echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+            echo "GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}" >> .env
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 

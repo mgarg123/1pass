@@ -12,6 +12,7 @@ import '../providers/breach_settings_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'change_master_password_screen.dart';
 import 'import_backup_screen.dart';
+import '../../auth/ui/recovery_key_modal.dart';
 import '../providers/health_settings_provider.dart';
 import '../../vault/ui/password_health_screen.dart';
 import '../../vault/ui/trash_screen.dart';
@@ -283,6 +284,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const ChangeMasterPasswordScreen()),
                   );
+                },
+              ),
+              const _CustomDivider(),
+              ListTile(
+                leading: Icon(Icons.vpn_key_outlined, color: Colors.grey[400]),
+                title: const Text('Emergency Recovery Key'),
+                subtitle: const Text('View or regenerate zero-knowledge recovery key', style: TextStyle(fontSize: 12, color: Colors.white54)),
+                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                onTap: () async {
+                  try {
+                    final recoveryKey = await ref.read(authProvider.notifier).generateOrRegenerateRecoveryKey();
+                    if (context.mounted) {
+                      RecoveryKeyModal.show(
+                        context,
+                        recoveryKey: recoveryKey,
+                        isDismissible: true,
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString())),
+                      );
+                    }
+                  }
                 },
               ),
               const _CustomDivider(),

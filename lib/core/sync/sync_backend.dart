@@ -20,6 +20,8 @@ abstract class SyncBackend {
     required String salt,
     required Map<String, dynamic> argon2Params,
     required String verificationBlob,
+    String? recoverySalt,
+    String? recoveryBlob,
   });
 
   // ── Vault Entries ───────────────────────────────────────────

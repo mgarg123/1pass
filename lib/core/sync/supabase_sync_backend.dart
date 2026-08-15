@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'sync_backend.dart';
+import '../crypto/crypto_models.dart';
 
 /// SyncBackend implementation that uses Supabase PostgREST + Auth.
 ///
@@ -36,16 +37,37 @@ class SupabaseSyncBackend implements SyncBackend {
     required String salt,
     required Map<String, dynamic> argon2Params,
     required String verificationBlob,
+    String? recoverySalt,
+    String? recoveryBlob,
   }) async {
     final userId = _userId;
     if (userId == null) throw Exception('Not signed in to Supabase.');
 
-    await _client.from('user_vault_meta').upsert({
+    final data = <String, dynamic>{
       'user_id': userId,
       'salt': salt,
       'argon2_params': argon2Params,
       'verification_blob': verificationBlob,
-    });
+    };
+    if (recoverySalt != null) data['recovery_salt'] = recoverySalt;
+    if (recoveryBlob != null) data['recovery_blob'] = recoveryBlob;
+
+    try {
+      await _client.from('user_vault_meta').upsert(data);
+    } on PostgrestException catch (e) {
+      if (e.code == 'PGRST204' || e.message.contains('recovery_')) {
+        // Fallback without recovery columns if columns are not created in Supabase yet
+        final fallbackData = <String, dynamic>{
+          'user_id': userId,
+          'salt': salt,
+          'argon2_params': argon2Params,
+          'verification_blob': verificationBlob,
+        };
+        await _client.from('user_vault_meta').upsert(fallbackData);
+      } else {
+        rethrow;
+      }
+    }
   }
 
   // ── Vault Entries ───────────────────────────────────────────
@@ -90,11 +112,40 @@ class SupabaseSyncBackend implements SyncBackend {
     required String verificationBlob,
     required List<Map<String, dynamic>> entries,
   }) async {
-    await _client.rpc('update_master_password', params: {
-      'p_salt': salt,
-      'p_argon2_params': argon2Params,
-      'p_verification_blob': verificationBlob,
-      'p_entries': entries,
-    });
+    try {
+      await _client.rpc('update_master_password', params: {
+        'p_salt': salt,
+        'p_argon2_params': argon2Params,
+        'p_verification_blob': verificationBlob,
+        'p_entries': entries,
+      });
+    } on PostgrestException catch (e) {
+      if (e.code == 'PGRST202' || e.message.contains('update_master_password')) {
+        // Fallback: update meta, then push entries individually
+        await upsertVaultMeta(
+          salt: salt,
+          argon2Params: argon2Params,
+          verificationBlob: verificationBlob,
+        );
+        if (entries.isNotEmpty) {
+          final pushEntriesList = <Map<String, dynamic>>[];
+          for (final entry in entries) {
+            final encryptedDataStr = entry['encryptedData'] as String;
+            final blob = EncryptedBlob.fromStorageString(encryptedDataStr);
+            pushEntriesList.add({
+              'id': entry['id'],
+              'encrypted_data': encryptedDataStr,
+              'nonce': blob.nonce.toBase64(),
+              'created_at': DateTime.now().toUtc().toIso8601String(),
+              'updated_at': entry['updatedAt'],
+              'is_deleted': false,
+            });
+          }
+          await pushEntries(pushEntriesList);
+        }
+      } else {
+        rethrow;
+      }
+    }
   }
 }

@@ -11,11 +11,15 @@ class LocalUserMeta {
   final Salt salt;
   final Argon2Params? argon2Params;
   final String? verificationBlob;
+  final Salt? recoverySalt;
+  final String? recoveryBlob;
 
   LocalUserMeta({
     required this.salt,
     this.argon2Params,
     this.verificationBlob,
+    this.recoverySalt,
+    this.recoveryBlob,
   });
 }
 
@@ -24,7 +28,13 @@ abstract class VaultRepository {
   Future<void> saveEntry(VaultEntry entry, EncryptionKey key);
   Future<void> deleteEntry(String id);
   Future<void> hardDeleteEntry(String id);
-  Future<void> saveMeta(Salt salt, Argon2Params params, String verificationBlob);
+  Future<void> saveMeta(
+    Salt salt,
+    Argon2Params params,
+    String verificationBlob, {
+    Salt? recoverySalt,
+    String? recoveryBlob,
+  });
   Future<LocalUserMeta?> getMeta();
   Future<void> clearVault();
 }
@@ -156,10 +166,22 @@ class HiveVaultRepository implements VaultRepository {
   }
 
   @override
-  Future<void> saveMeta(Salt salt, Argon2Params params, String verificationBlob) async {
+  Future<void> saveMeta(
+    Salt salt,
+    Argon2Params params,
+    String verificationBlob, {
+    Salt? recoverySalt,
+    String? recoveryBlob,
+  }) async {
     await HiveSetup.metaBox.put('user_salt', salt.toBase64());
     await HiveSetup.metaBox.put('argon2_params', params.toJson());
     await HiveSetup.metaBox.put('verification_blob', verificationBlob);
+    if (recoverySalt != null) {
+      await HiveSetup.metaBox.put('recovery_salt', recoverySalt.toBase64());
+    }
+    if (recoveryBlob != null) {
+      await HiveSetup.metaBox.put('recovery_blob', recoveryBlob);
+    }
   }
 
   @override
@@ -169,11 +191,15 @@ class HiveVaultRepository implements VaultRepository {
     
     final paramsJson = HiveSetup.metaBox.get('argon2_params') as Map?;
     final verificationBlob = HiveSetup.metaBox.get('verification_blob') as String?;
+    final recoverySaltStr = HiveSetup.metaBox.get('recovery_salt') as String?;
+    final recoveryBlob = HiveSetup.metaBox.get('recovery_blob') as String?;
 
     return LocalUserMeta(
       salt: Salt.fromBase64(saltStr),
       argon2Params: paramsJson != null ? Argon2Params.fromJson(Map<String, dynamic>.from(paramsJson)) : null,
       verificationBlob: verificationBlob,
+      recoverySalt: recoverySaltStr != null ? Salt.fromBase64(recoverySaltStr) : null,
+      recoveryBlob: recoveryBlob,
     );
   }
 

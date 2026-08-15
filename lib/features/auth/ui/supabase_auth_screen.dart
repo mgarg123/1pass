@@ -109,6 +109,62 @@ class _SupabaseAuthScreenState extends ConsumerState<SupabaseAuthScreen> {
                       )
                     : Text(_isLogin ? 'Sign In' : 'Sign Up'),
               ),
+              const SizedBox(height: 20),
+              Row(
+                children: const [
+                  Expanded(child: Divider(color: Color(0xFF222222))),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('OR', style: TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                  Expanded(child: Divider(color: Color(0xFF222222))),
+                ],
+              ),
+              const SizedBox(height: 20),
+              OutlinedButton(
+                onPressed: authState.isAuthenticating
+                    ? null
+                    : () async {
+                        try {
+                          await ref.read(authProvider.notifier).supabaseGoogleSignIn();
+                        } catch (_) {}
+                      },
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A1A1A),
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Color(0xFF333333)),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'G',
+                          style: TextStyle(
+                            color: Color(0xFF4285F4),
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Continue with Google',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () {

@@ -107,4 +107,49 @@ class CryptoService {
       throw DecryptionFailedException('Decryption failed: $e');
     }
   }
+
+  static const String _crockfordAlphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+
+  /// Generates a 120-bit secure random Emergency Recovery Key formatted as:
+  /// OP-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX
+  String generateRecoveryKey() {
+    final randomBytes = _generateRandomBytes(24);
+    final buffer = StringBuffer('OP');
+    
+    for (int i = 0; i < 24; i++) {
+      if (i % 4 == 0) {
+        buffer.write('-');
+      }
+      final index = randomBytes[i] % _crockfordAlphabet.length;
+      buffer.write(_crockfordAlphabet[index]);
+    }
+
+    return buffer.toString();
+  }
+
+  /// Normalizes a user-entered recovery key by removing prefixes, hyphens, and whitespace.
+  String normalizeRecoveryKey(String input) {
+    var cleaned = input.trim().toUpperCase();
+    if (cleaned.startsWith('OP-') || cleaned.startsWith('OP:')) {
+      cleaned = cleaned.substring(3);
+    } else if (cleaned.startsWith('OP')) {
+      cleaned = cleaned.substring(2);
+    }
+    // Replace common character confusions
+    cleaned = cleaned.replaceAll(RegExp(r'[\s\-_:]'), '');
+    cleaned = cleaned.replaceAll('I', '1').replaceAll('L', '1').replaceAll('O', '0');
+    return cleaned;
+  }
+
+  /// Derives an EncryptionKey from a recovery key string and salt using Argon2id
+  Future<EncryptionKey> deriveKeyFromRecoveryKey({
+    required String recoveryKey,
+    required Salt salt,
+  }) async {
+    final normalized = normalizeRecoveryKey(recoveryKey);
+    if (normalized.length < 16) {
+      throw Exception('Invalid recovery key format. Too short.');
+    }
+    return deriveKey(password: normalized, salt: salt);
+  }
 }

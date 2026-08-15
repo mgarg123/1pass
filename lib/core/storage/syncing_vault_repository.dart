@@ -48,8 +48,20 @@ class SyncingVaultRepository implements VaultRepository {
   }
 
   @override
-  Future<void> saveMeta(Salt salt, Argon2Params params, String verificationBlob) async {
-    await _localRepository.saveMeta(salt, params, verificationBlob);
+  Future<void> saveMeta(
+    Salt salt,
+    Argon2Params params,
+    String verificationBlob, {
+    Salt? recoverySalt,
+    String? recoveryBlob,
+  }) async {
+    await _localRepository.saveMeta(
+      salt,
+      params,
+      verificationBlob,
+      recoverySalt: recoverySalt,
+      recoveryBlob: recoveryBlob,
+    );
   }
 
   @override

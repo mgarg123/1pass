@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../../core/crypto/crypto_models.dart';
 import '../../../core/crypto/crypto_service.dart';
 import '../../../core/constants/crypto_constants.dart';
@@ -54,10 +56,16 @@ class AuthState {
   final EncryptionKey? encryptionKey;
   final bool isAuthenticating;
   final String? errorMessage;
+  final String? newlyGeneratedRecoveryKey;
   
   bool get isAuthenticated => encryptionKey != null;
 
-  AuthState({this.encryptionKey, this.isAuthenticating = false, this.errorMessage});
+  AuthState({
+    this.encryptionKey, 
+    this.isAuthenticating = false, 
+    this.errorMessage,
+    this.newlyGeneratedRecoveryKey,
+  });
   
   AuthState copyWith({
     EncryptionKey? encryptionKey,
@@ -65,11 +73,16 @@ class AuthState {
     bool? isAuthenticating,
     String? errorMessage,
     bool clearError = false,
+    String? newlyGeneratedRecoveryKey,
+    bool clearRecoveryKey = false,
   }) {
     return AuthState(
       encryptionKey: clearKey ? null : (encryptionKey ?? this.encryptionKey),
       isAuthenticating: isAuthenticating ?? this.isAuthenticating,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      newlyGeneratedRecoveryKey: clearRecoveryKey 
+          ? null 
+          : (newlyGeneratedRecoveryKey ?? this.newlyGeneratedRecoveryKey),
     );
   }
 }
@@ -141,7 +154,14 @@ class AuthNotifier extends Notifier<AuthState> {
       await Supabase.instance.client.auth.signInWithPassword(email: email, password: password);
       state = state.copyWith(isAuthenticating: false);
     } on AuthException catch (e) {
-      state = state.copyWith(isAuthenticating: false, errorMessage: e.message);
+      String msg = e.message;
+      if (msg.toLowerCase().contains('invalid login credentials') ||
+          msg.toLowerCase().contains('invalid credentials')) {
+        msg = 'Invalid email or password. If you don\'t have an account yet, please sign up below.';
+      } else if (msg.toLowerCase().contains('email not confirmed')) {
+        msg = 'Please check your inbox to confirm your email before signing in.';
+      }
+      state = state.copyWith(isAuthenticating: false, errorMessage: msg);
       rethrow;
     } catch (e) {
       state = state.copyWith(isAuthenticating: false, errorMessage: 'An unexpected error occurred: $e');
@@ -149,9 +169,59 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  Future<void> supabaseGoogleSignIn() async {
+    state = state.copyWith(isAuthenticating: true, clearError: true);
+    try {
+      final webClientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'];
+      final iosClientId = dotenv.env['GOOGLE_IOS_CLIENT_ID'];
+
+      if (webClientId == null || webClientId.trim().isEmpty) {
+        throw Exception('GOOGLE_WEB_CLIENT_ID is missing from .env');
+      }
+
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        serverClientId: webClientId.trim(),
+        clientId: iosClientId?.isNotEmpty == true ? iosClientId!.trim() : null,
+        scopes: const ['email', 'profile'],
+      );
+
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        // User cancelled the sign-in flow
+        state = state.copyWith(isAuthenticating: false);
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final accessToken = googleAuth.accessToken;
+      final idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        throw Exception('Failed to obtain Google ID token.');
+      }
+
+      await Supabase.instance.client.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+
+      state = state.copyWith(isAuthenticating: false);
+    } on AuthException catch (e) {
+      state = state.copyWith(isAuthenticating: false, errorMessage: e.message);
+      rethrow;
+    } catch (e) {
+      state = state.copyWith(
+        isAuthenticating: false,
+        errorMessage: 'Google sign-in failed: ${e.toString().replaceAll('Exception: ', '')}',
+      );
+      rethrow;
+    }
+  }
+
   // ── Vault Setup & Unlock (all modes) ────────────────────────
 
-  Future<void> setupVault(String masterPassword) async {
+  Future<String?> setupVault(String masterPassword) async {
     state = state.copyWith(isAuthenticating: true, clearError: true);
     try {
       final salt = await _cryptoService.generateSalt();
@@ -168,9 +238,26 @@ class AuthNotifier extends Notifier<AuthState> {
       final verificationBlobObj = await _cryptoService.encrypt(verificationPayload, key);
       final verificationBlobStr = verificationBlobObj.toStorageString();
 
-      // Store salt and initialize empty vault
+      // Generate Emergency Recovery Key and encrypt vault master key
+      final recoveryKeyStr = _cryptoService.generateRecoveryKey();
+      final recoverySalt = await _cryptoService.generateSalt();
+      final recKey = await _cryptoService.deriveKeyFromRecoveryKey(
+        recoveryKey: recoveryKeyStr, 
+        salt: recoverySalt,
+      );
+      final recoveryBlobObj = await _cryptoService.encrypt(key.bytes, recKey);
+      recKey.clear();
+      final recoveryBlobStr = recoveryBlobObj.toStorageString();
+
+      // Store salt, params, and recovery metadata locally
       await _vaultRepository.clearVault();
-      await _vaultRepository.saveMeta(salt, params, verificationBlobStr);
+      await _vaultRepository.saveMeta(
+        salt, 
+        params, 
+        verificationBlobStr,
+        recoverySalt: recoverySalt,
+        recoveryBlob: recoveryBlobStr,
+      );
       
       // Upload meta to remote backend if sync is enabled
       final backend = _syncBackend;
@@ -179,13 +266,25 @@ class AuthNotifier extends Notifier<AuthState> {
           salt: salt.toBase64(),
           argon2Params: params.toJson(),
           verificationBlob: verificationBlobStr,
+          recoverySalt: recoverySalt.toBase64(),
+          recoveryBlob: recoveryBlobStr,
         );
       }
       
-      state = state.copyWith(encryptionKey: key, isAuthenticating: false);
+      state = state.copyWith(
+        encryptionKey: key, 
+        isAuthenticating: false,
+        newlyGeneratedRecoveryKey: recoveryKeyStr,
+      );
+      return recoveryKeyStr;
     } catch (e) {
       state = state.copyWith(isAuthenticating: false, errorMessage: e.toString().replaceAll('Exception: ', ''));
+      return null;
     }
+  }
+
+  void clearNewlyGeneratedRecoveryKey() {
+    state = state.copyWith(clearRecoveryKey: true);
   }
 
   Future<void> unlockVault(String masterPassword) async {
@@ -208,9 +307,25 @@ class AuthNotifier extends Notifier<AuthState> {
             Map<String, dynamic>.from(remoteMeta['argon2_params'] as Map),
           );
           final verificationBlob = remoteMeta['verification_blob'] as String;
+          final recoverySalt = remoteMeta['recovery_salt'] != null
+              ? Salt.fromBase64(remoteMeta['recovery_salt'] as String)
+              : null;
+          final recoveryBlob = remoteMeta['recovery_blob'] as String?;
 
-          await _vaultRepository.saveMeta(salt, params, verificationBlob);
-          meta = LocalUserMeta(salt: salt, argon2Params: params, verificationBlob: verificationBlob);
+          await _vaultRepository.saveMeta(
+            salt, 
+            params, 
+            verificationBlob,
+            recoverySalt: recoverySalt,
+            recoveryBlob: recoveryBlob,
+          );
+          meta = LocalUserMeta(
+            salt: salt, 
+            argon2Params: params, 
+            verificationBlob: verificationBlob,
+            recoverySalt: recoverySalt,
+            recoveryBlob: recoveryBlob,
+          );
         } else if (_modeConfig?.isLocal == true) {
           throw Exception('No vault setup found. Please set up your vault.');
         } else {
@@ -266,6 +381,12 @@ class AuthNotifier extends Notifier<AuthState> {
     // Sign out of Supabase only in cloud sync mode
     if (_modeConfig?.isCloud == true) {
       await Supabase.instance.client.auth.signOut();
+      try {
+        final GoogleSignIn googleSignIn = GoogleSignIn();
+        if (await googleSignIn.isSignedIn()) {
+          await googleSignIn.signOut();
+        }
+      } catch (_) {}
     }
 
     state = state.copyWith(clearKey: true);
@@ -290,6 +411,271 @@ class AuthNotifier extends Notifier<AuthState> {
       }
     } catch (e) {
       state = state.copyWith(isAuthenticating: false, errorMessage: e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<bool> unlockWithRecoveryKey(String recoveryKey) async {
+    state = state.copyWith(isAuthenticating: true, clearError: true);
+    try {
+      LocalUserMeta? meta = await _vaultRepository.getMeta();
+      
+      // If no local meta or recovery blob missing locally, try fetching from remote backend
+      if (meta == null || meta.recoveryBlob == null) {
+        final backend = _syncBackend;
+        if (backend != null && backend.isReady) {
+          final remoteMeta = await backend.getVaultMeta();
+          if (remoteMeta == null) throw Exception('No vault found.');
+          final salt = Salt.fromBase64(remoteMeta['salt'] as String);
+          final params = Argon2Params.fromJson(
+            Map<String, dynamic>.from(remoteMeta['argon2_params'] as Map),
+          );
+          final verificationBlob = remoteMeta['verification_blob'] as String;
+          final recoverySalt = remoteMeta['recovery_salt'] != null
+              ? Salt.fromBase64(remoteMeta['recovery_salt'] as String)
+              : null;
+          final recoveryBlob = remoteMeta['recovery_blob'] as String?;
+
+          await _vaultRepository.saveMeta(
+            salt, 
+            params, 
+            verificationBlob,
+            recoverySalt: recoverySalt,
+            recoveryBlob: recoveryBlob,
+          );
+          meta = LocalUserMeta(
+            salt: salt, 
+            argon2Params: params, 
+            verificationBlob: verificationBlob,
+            recoverySalt: recoverySalt,
+            recoveryBlob: recoveryBlob,
+          );
+        } else if (_modeConfig?.isLocal == true) {
+          throw Exception('No vault setup found. Please set up your vault.');
+        } else {
+          throw Exception('No vault setup found and remote backend is not available.');
+        }
+      }
+
+      if (meta.recoverySalt == null || meta.recoveryBlob == null) {
+        throw Exception('No recovery key has been configured for this vault.');
+      }
+
+      final recKey = await _cryptoService.deriveKeyFromRecoveryKey(
+        recoveryKey: recoveryKey, 
+        salt: meta.recoverySalt!,
+      );
+
+      final recoveryBlobObj = EncryptedBlob.fromStorageString(meta.recoveryBlob!);
+      final vaultKeyBytes = await _cryptoService.decrypt(recoveryBlobObj, recKey);
+      recKey.clear();
+
+      final key = EncryptionKey(vaultKeyBytes);
+
+      // Verify decrypted vault key against verification blob
+      if (meta.verificationBlob != null && meta.verificationBlob!.isNotEmpty) {
+        final blob = EncryptedBlob.fromStorageString(meta.verificationBlob!);
+        try {
+          final dec = await _cryptoService.decrypt(blob, key);
+          if (utf8.decode(dec) != 'vault-verify') {
+            throw Exception('Invalid recovery key.');
+          }
+        } catch (_) {
+          key.clear();
+          throw Exception('Invalid recovery key.');
+        }
+      }
+
+      state = state.copyWith(encryptionKey: key, isAuthenticating: false);
+      ref.read(biometricProvider.notifier).storeEncryptionKey(key);
+
+      if (_syncBackend != null) {
+        ref.read(syncProvider.notifier).triggerSync();
+      }
+
+      return true;
+    } catch (e) {
+      state = state.copyWith(isAuthenticating: false, errorMessage: e.toString().replaceAll('Exception: ', ''));
+      return false;
+    }
+  }
+
+  Future<String> generateOrRegenerateRecoveryKey() async {
+    final key = state.encryptionKey;
+    if (key == null) throw Exception('Vault must be unlocked to manage recovery keys.');
+
+    final recoveryKeyStr = _cryptoService.generateRecoveryKey();
+    final recoverySalt = await _cryptoService.generateSalt();
+    final recKey = await _cryptoService.deriveKeyFromRecoveryKey(
+      recoveryKey: recoveryKeyStr, 
+      salt: recoverySalt,
+    );
+
+    final recoveryBlobObj = await _cryptoService.encrypt(key.bytes, recKey);
+    recKey.clear();
+    final recoveryBlobStr = recoveryBlobObj.toStorageString();
+
+    final meta = await _vaultRepository.getMeta();
+    if (meta != null) {
+      final params = meta.argon2Params ?? Argon2Params(
+        memoryKB: CryptoConstants.argon2MemoryKB,
+        iterations: CryptoConstants.argon2Iterations,
+        parallelism: CryptoConstants.argon2Parallelism,
+        hashLengthBytes: CryptoConstants.keyLengthBytes,
+      );
+
+      await _vaultRepository.saveMeta(
+        meta.salt,
+        params,
+        meta.verificationBlob ?? '',
+        recoverySalt: recoverySalt,
+        recoveryBlob: recoveryBlobStr,
+      );
+
+      final backend = _syncBackend;
+      if (backend != null && backend.isReady) {
+        await backend.upsertVaultMeta(
+          salt: meta.salt.toBase64(),
+          argon2Params: params.toJson(),
+          verificationBlob: meta.verificationBlob ?? '',
+          recoverySalt: recoverySalt.toBase64(),
+          recoveryBlob: recoveryBlobStr,
+        );
+      }
+    }
+
+    state = state.copyWith(newlyGeneratedRecoveryKey: recoveryKeyStr);
+    return recoveryKeyStr;
+  }
+
+  Future<String> resetMasterPasswordWithActiveKey({required String newPassword}) async {
+    final currentKey = state.encryptionKey;
+    if (currentKey == null) throw Exception('Vault must be unlocked to set a new password.');
+
+    state = state.copyWith(isAuthenticating: true, clearError: true);
+    try {
+      final newSalt = await _cryptoService.generateSalt();
+      final newKey = await _cryptoService.deriveKey(password: newPassword, salt: newSalt);
+      final params = Argon2Params(
+        memoryKB: CryptoConstants.argon2MemoryKB,
+        iterations: CryptoConstants.argon2Iterations,
+        parallelism: CryptoConstants.argon2Parallelism,
+        hashLengthBytes: CryptoConstants.keyLengthBytes,
+      );
+
+      final verificationPayload = Uint8List.fromList(utf8.encode('vault-verify'));
+      final newVerificationBlobObj = await _cryptoService.encrypt(verificationPayload, newKey);
+      final newVerificationBlobStr = newVerificationBlobObj.toStorageString();
+
+      // Generate new recovery key for the new master key
+      final recoveryKeyStr = _cryptoService.generateRecoveryKey();
+      final recoverySalt = await _cryptoService.generateSalt();
+      final recKey = await _cryptoService.deriveKeyFromRecoveryKey(
+        recoveryKey: recoveryKeyStr, 
+        salt: recoverySalt,
+      );
+      final recoveryBlobObj = await _cryptoService.encrypt(newKey.bytes, recKey);
+      recKey.clear();
+      final recoveryBlobStr = recoveryBlobObj.toStorageString();
+
+      // Decrypt and re-encrypt entries
+      final entries = await _vaultRepository.getAllEntries(currentKey);
+      final rpcEntries = <Map<String, dynamic>>[];
+      
+      for (final entry in entries) {
+        final payloadString = entry.sensitivePayload;
+        final payloadBytes = Uint8List.fromList(utf8.encode(payloadString));
+        final newBlob = await _cryptoService.encrypt(payloadBytes, newKey);
+        
+        DateTime newUpdatedAt = DateTime.now().toUtc();
+        if (!newUpdatedAt.isAfter(entry.updatedAt)) {
+          newUpdatedAt = entry.updatedAt.add(const Duration(milliseconds: 1));
+        }
+
+        rpcEntries.add({
+          'id': entry.id,
+          'encryptedData': newBlob.toStorageString(),
+          'updatedAt': newUpdatedAt.toIso8601String(),
+        });
+      }
+
+      // Sync with backend
+      final backend = _syncBackend;
+      if (backend != null && backend.isReady) {
+        try {
+          if (backend.supportsAtomicRotation) {
+            await backend.rotateMasterPassword(
+              salt: newSalt.toBase64(),
+              argon2Params: params.toJson(),
+              verificationBlob: newVerificationBlobStr,
+              entries: rpcEntries,
+            );
+          }
+        } catch (_) {}
+
+        await backend.upsertVaultMeta(
+          salt: newSalt.toBase64(),
+          argon2Params: params.toJson(),
+          verificationBlob: newVerificationBlobStr,
+          recoverySalt: recoverySalt.toBase64(),
+          recoveryBlob: recoveryBlobStr,
+        );
+
+        if (!backend.supportsAtomicRotation && entries.isNotEmpty) {
+          final pushEntries = <Map<String, dynamic>>[];
+          for (int i = 0; i < entries.length; i++) {
+            final entry = entries[i];
+            final rpcEntry = rpcEntries[i];
+            final blob = EncryptedBlob.fromStorageString(rpcEntry['encryptedData']);
+            pushEntries.add({
+              'id': entry.id,
+              'encrypted_data': rpcEntry['encryptedData'],
+              'nonce': blob.nonce.toBase64(),
+              'created_at': entry.createdAt.toIso8601String(),
+              'updated_at': rpcEntry['updatedAt'],
+              'is_deleted': entry.isDeleted,
+            });
+          }
+          if (pushEntries.isNotEmpty) {
+            await backend.pushEntries(pushEntries);
+          }
+        }
+      }
+
+      // Local save
+      await _vaultRepository.saveMeta(
+        newSalt, 
+        params, 
+        newVerificationBlobStr,
+        recoverySalt: recoverySalt,
+        recoveryBlob: recoveryBlobStr,
+      );
+      for (int i = 0; i < entries.length; i++) {
+        final entry = entries[i];
+        final rpcEntry = rpcEntries[i];
+        final updatedEntry = entry.copyWith(updatedAt: DateTime.parse(rpcEntry['updatedAt']));
+        final data = {
+          'id': updatedEntry.id,
+          'title': updatedEntry.title,
+          'tags': updatedEntry.tags,
+          'createdAt': updatedEntry.createdAt.toIso8601String(),
+          'updatedAt': updatedEntry.updatedAt.toIso8601String(),
+          'isDeleted': updatedEntry.isDeleted,
+          'encryptedData': rpcEntry['encryptedData'],
+        };
+        await HiveSetup.vaultBox.put(updatedEntry.id, data);
+      }
+      
+      currentKey.clear();
+      state = state.copyWith(
+        encryptionKey: newKey, 
+        isAuthenticating: false,
+        newlyGeneratedRecoveryKey: recoveryKeyStr,
+      );
+      ref.read(biometricProvider.notifier).storeEncryptionKey(newKey);
+      return recoveryKeyStr;
+    } catch (e) {
+      state = state.copyWith(isAuthenticating: false, errorMessage: e.toString().replaceAll('Exception: ', ''));
+      rethrow;
     }
   }
 
@@ -330,7 +716,18 @@ class AuthNotifier extends Notifier<AuthState> {
       final newVerificationBlobObj = await _cryptoService.encrypt(verificationPayload, newKey);
       final newVerificationBlobStr = newVerificationBlobObj.toStorageString();
 
-      // 4. Decrypt and re-encrypt entries
+      // 4. Generate new recovery key for the new master key
+      final recoveryKeyStr = _cryptoService.generateRecoveryKey();
+      final recoverySalt = await _cryptoService.generateSalt();
+      final recKey = await _cryptoService.deriveKeyFromRecoveryKey(
+        recoveryKey: recoveryKeyStr, 
+        salt: recoverySalt,
+      );
+      final recoveryBlobObj = await _cryptoService.encrypt(newKey.bytes, recKey);
+      recKey.clear();
+      final recoveryBlobStr = recoveryBlobObj.toStorageString();
+
+      // 5. Decrypt and re-encrypt entries
       final entries = await _vaultRepository.getAllEntries(oldKey);
       final rpcEntries = <Map<String, dynamic>>[];
       
@@ -341,7 +738,7 @@ class AuthNotifier extends Notifier<AuthState> {
         
         DateTime newUpdatedAt = DateTime.now().toUtc();
         if (!newUpdatedAt.isAfter(entry.updatedAt)) {
-            newUpdatedAt = entry.updatedAt.add(const Duration(milliseconds: 1));
+          newUpdatedAt = entry.updatedAt.add(const Duration(milliseconds: 1));
         }
 
         rpcEntries.add({
@@ -351,25 +748,29 @@ class AuthNotifier extends Notifier<AuthState> {
         });
       }
 
-      // 5. Upload to remote backend (if available)
+      // 6. Upload to remote backend (if available)
       final backend = _syncBackend;
       if (backend != null && backend.isReady) {
-        if (backend.supportsAtomicRotation) {
-          // Atomic rotation via server-side transaction
-          await backend.rotateMasterPassword(
-            salt: newSalt.toBase64(),
-            argon2Params: params.toJson(),
-            verificationBlob: newVerificationBlobStr,
-            entries: rpcEntries,
-          );
-        } else {
-          // Fallback: update meta first, then push entries one by one
-          await backend.upsertVaultMeta(
-            salt: newSalt.toBase64(),
-            argon2Params: params.toJson(),
-            verificationBlob: newVerificationBlobStr,
-          );
-          // Push re-encrypted entries
+        try {
+          if (backend.supportsAtomicRotation) {
+            await backend.rotateMasterPassword(
+              salt: newSalt.toBase64(),
+              argon2Params: params.toJson(),
+              verificationBlob: newVerificationBlobStr,
+              entries: rpcEntries,
+            );
+          }
+        } catch (_) {}
+
+        await backend.upsertVaultMeta(
+          salt: newSalt.toBase64(),
+          argon2Params: params.toJson(),
+          verificationBlob: newVerificationBlobStr,
+          recoverySalt: recoverySalt.toBase64(),
+          recoveryBlob: recoveryBlobStr,
+        );
+
+        if (!backend.supportsAtomicRotation && entries.isNotEmpty) {
           final pushEntries = <Map<String, dynamic>>[];
           for (int i = 0; i < entries.length; i++) {
             final entry = entries[i];
@@ -390,14 +791,18 @@ class AuthNotifier extends Notifier<AuthState> {
         }
       }
 
-      // 6. Local commit
-      await _vaultRepository.saveMeta(newSalt, params, newVerificationBlobStr);
+      // 7. Local commit
+      await _vaultRepository.saveMeta(
+        newSalt, 
+        params, 
+        newVerificationBlobStr,
+        recoverySalt: recoverySalt,
+        recoveryBlob: recoveryBlobStr,
+      );
       for (int i = 0; i < entries.length; i++) {
         final entry = entries[i];
         final rpcEntry = rpcEntries[i];
-        
         final updatedEntry = entry.copyWith(updatedAt: DateTime.parse(rpcEntry['updatedAt']));
-        
         final data = {
           'id': updatedEntry.id,
           'title': updatedEntry.title,
@@ -415,7 +820,11 @@ class AuthNotifier extends Notifier<AuthState> {
       oldKey.clear();
       
       // Set new state
-      state = state.copyWith(encryptionKey: newKey, isAuthenticating: false);
+      state = state.copyWith(
+        encryptionKey: newKey, 
+        isAuthenticating: false,
+        newlyGeneratedRecoveryKey: recoveryKeyStr,
+      );
       ref.read(biometricProvider.notifier).storeEncryptionKey(newKey);
       
     } catch (e) {

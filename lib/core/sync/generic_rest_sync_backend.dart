@@ -57,13 +57,19 @@ class GenericRestSyncBackend implements SyncBackend {
     required String salt,
     required Map<String, dynamic> argon2Params,
     required String verificationBlob,
+    String? recoverySalt,
+    String? recoveryBlob,
   }) async {
     try {
-      await _dio.put('/vault/meta', data: {
+      final data = <String, dynamic>{
         'salt': salt,
         'argon2_params': argon2Params,
         'verification_blob': verificationBlob,
-      });
+      };
+      if (recoverySalt != null) data['recovery_salt'] = recoverySalt;
+      if (recoveryBlob != null) data['recovery_blob'] = recoveryBlob;
+
+      await _dio.put('/vault/meta', data: data);
     } on DioException catch (e) {
       throw _wrapError('Failed to upsert vault meta', e);
     }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../providers/biometric_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'recovery_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -124,7 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       : const Text('Unlock'),
                 ),
                 if (ref.watch(biometricProvider).isEnabled) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   TextButton.icon(
                     onPressed: authState.isAuthenticating
                         ? null
@@ -133,6 +134,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     label: const Text('Unlock with Biometrics'),
                   ),
                 ],
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: authState.isAuthenticating
+                      ? null
+                      : () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const RecoveryScreen()),
+                          );
+                        },
+                  child: const Text(
+                    'Forgot Master Password? Use Recovery Key',
+                    style: TextStyle(color: Colors.white60, fontSize: 13),
+                  ),
+                ),
               ].animate(interval: 100.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, curve: Curves.easeOut),
             ),
           ),

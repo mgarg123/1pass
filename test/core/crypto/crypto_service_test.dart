@@ -139,5 +139,44 @@ void main() {
       final decryptedBytes = await cryptoService.decrypt(encryptedBlob, key);
       expect(decryptedBytes.isEmpty, isTrue, reason: 'Decrypted empty string should be empty list');
     });
+
+    test('Emergency Recovery Key: Generation, Normalization and Roundtrip', () async {
+      final recoveryKey = cryptoService.generateRecoveryKey();
+      expect(recoveryKey.startsWith('OP-'), isTrue);
+      expect(recoveryKey.length, 24 + 6 + 2); // OP-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX = 32 chars
+
+      final normalized = cryptoService.normalizeRecoveryKey(recoveryKey);
+      expect(normalized.length, 24);
+
+      // Normalization handles spaces, lowercase, and hyphens
+      final messyInput = ' op - ${recoveryKey.substring(3).toLowerCase()} ';
+      expect(cryptoService.normalizeRecoveryKey(messyInput), normalized);
+
+      // Vault key derivation & recovery roundtrip test
+      final vaultSalt = await cryptoService.generateSalt();
+      final vaultKey = await cryptoService.deriveKey(password: 'masterPassword123!', salt: vaultSalt);
+
+      final recoverySalt = await cryptoService.generateSalt();
+      final recKey = await cryptoService.deriveKeyFromRecoveryKey(
+        recoveryKey: recoveryKey, 
+        salt: recoverySalt,
+      );
+
+      // Encrypt vault key with recovery key
+      final recoveryBlob = await cryptoService.encrypt(vaultKey.bytes, recKey);
+
+      // Decrypt vault key using recovery key
+      final recoveredKeyBytes = await cryptoService.decrypt(recoveryBlob, recKey);
+      final recoveredVaultKey = EncryptionKey(recoveredKeyBytes);
+
+      expect(recoveredVaultKey.bytes, equals(vaultKey.bytes));
+
+      // Test that recovered key can decrypt data originally encrypted with vaultKey
+      final secretData = Uint8List.fromList(utf8.encode('TopSecretPassword'));
+      final encryptedSecret = await cryptoService.encrypt(secretData, vaultKey);
+
+      final decryptedSecret = await cryptoService.decrypt(encryptedSecret, recoveredVaultKey);
+      expect(utf8.decode(decryptedSecret), equals('TopSecretPassword'));
+    });
   });
 }

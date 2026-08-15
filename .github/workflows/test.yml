@@ -20,6 +20,9 @@ jobs:
         with:
           channel: 'stable'
           
+      - name: Create placeholder .env
+        run: touch .env
+          
       - name: Install dependencies
         run: flutter pub get
         

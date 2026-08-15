@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'recovery_key_modal.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -47,7 +48,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       return;
     }
 
-    await ref.read(authProvider.notifier).setupVault(_passwordController.text);
+    final recoveryKey = await ref.read(authProvider.notifier).setupVault(_passwordController.text);
+    if (recoveryKey != null && mounted) {
+      await RecoveryKeyModal.show(
+        context,
+        recoveryKey: recoveryKey,
+        isDismissible: false,
+      );
+    }
   }
 
   @override
