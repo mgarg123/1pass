@@ -4,6 +4,11 @@ All notable changes to the **1Pass** project are documented in this file.
 
 ---
 
+## [1.2.2+20] - 2026-10-10
+
+- **Update Dialog Color Polish**: Revamped button design and contrast with Electric Blue and Emerald Green actions and crisp white typography.
+- **UI Harmonization**: Coordinated Sky Blue accents across dialog headers, progress indicators, and structured dark pill actions.
+
 ## [1.2.1+19] - 2026-10-10
 
 - **Update Popup Revamp**: Modern dark glassmorphism dialog with "What's New" release notes.

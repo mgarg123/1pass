@@ -1,7 +1,7 @@
 name: one_pass
 description: "A new Flutter project."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
-version: 1.2.1+19
+version: 1.2.2+20
 
 environment:
   sdk: ^3.12.2

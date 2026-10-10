@@ -293,8 +293,11 @@ class _UpdateDialogState extends State<UpdateDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
+    const accentBlue = Color(0xFF2563EB); // Vibrant Electric Blue
+    const lightBlue = Color(0xFF60A5FA); // Bright Sky Blue text/highlight
+    final actionColor = _isAlreadyDownloaded
+        ? const Color(0xFF16A34A) // Emerald Green for install
+        : accentBlue; // Electric Blue for download
     final updateService = UpdateService();
     final asset = updateService.getAssetForPlatform(widget.release);
 
@@ -304,14 +307,14 @@ class _UpdateDialogState extends State<UpdateDialog> {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 420),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E24),
+          color: const Color(0xFF1C1C22),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 28,
+              offset: const Offset(0, 14),
             ),
           ],
         ),
@@ -328,14 +331,21 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   height: 44,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [primaryColor.withValues(alpha: 0.25), primaryColor.withValues(alpha: 0.08)],
+                      colors: [
+                        accentBlue.withValues(alpha: 0.28),
+                        accentBlue.withValues(alpha: 0.08),
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: accentBlue.withValues(alpha: 0.35)),
                   ),
-                  child: Icon(Icons.auto_awesome_rounded, color: primaryColor, size: 24),
+                  child: const Icon(
+                    Icons.system_update_alt_rounded,
+                    color: lightBlue,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -402,17 +412,18 @@ class _UpdateDialogState extends State<UpdateDialog> {
                     ),
                   ],
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: primaryColor.withValues(alpha: 0.18),
+                      color: accentBlue.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: accentBlue.withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       widget.release.displayTag,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: primaryColor,
+                        color: lightBlue,
                       ),
                     ),
                   ),
@@ -484,7 +495,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF141418),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: primaryColor.withValues(alpha: 0.2)),
+                  border: Border.all(color: accentBlue.withValues(alpha: 0.25)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,10 +515,10 @@ class _UpdateDialogState extends State<UpdateDialog> {
                         ),
                         Text(
                           '${(_progress * 100).toInt()}%',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: primaryColor,
+                            color: lightBlue,
                           ),
                         ),
                       ],
@@ -519,7 +530,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                         value: _totalBytes > 0 ? _progress : null,
                         minHeight: 8,
                         backgroundColor: Colors.white10,
-                        valueColor: AlwaysStoppedAnimation(primaryColor),
+                        valueColor: const AlwaysStoppedAnimation(accentBlue),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -560,13 +571,13 @@ class _UpdateDialogState extends State<UpdateDialog> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF34C759).withValues(alpha: 0.12),
+                  color: const Color(0xFF16A34A).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF34C759).withValues(alpha: 0.35)),
+                  border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.35)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle_rounded, color: Color(0xFF34C759), size: 20),
+                    const Icon(Icons.check_circle_rounded, color: Color(0xFF22C55E), size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -577,7 +588,7 @@ class _UpdateDialogState extends State<UpdateDialog> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF34C759),
+                              color: Color(0xFF22C55E),
                             ),
                           ),
                           Text(
@@ -632,14 +643,19 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   child: TextButton(
                     onPressed: _isDownloading ? null : () => Navigator.pop(context),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      backgroundColor: const Color(0xFF26262E),
+                      foregroundColor: Colors.white.withValues(alpha: 0.75),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                      ),
                     ),
-                    child: Text(
+                    child: const Text(
                       'Later',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.white.withValues(alpha: 0.5),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -650,17 +666,20 @@ class _UpdateDialogState extends State<UpdateDialog> {
                   child: ElevatedButton(
                     onPressed: (_isDownloading || _isCheckingCache) ? null : _handlePrimaryAction,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.black,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      backgroundColor: actionColor,
+                      foregroundColor: Colors.white,
+                      elevation: 3,
+                      shadowColor: actionColor.withValues(alpha: 0.4),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                     child: _isCheckingCache
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -669,14 +688,17 @@ class _UpdateDialogState extends State<UpdateDialog> {
                                 _isAlreadyDownloaded
                                     ? Icons.install_mobile_rounded
                                     : Icons.download_rounded,
+                                color: Colors.white,
                                 size: 18,
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 _isAlreadyDownloaded ? 'Install Now' : 'Download & Install',
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w700,
                                   fontSize: 14,
+                                  color: Colors.white,
+                                  letterSpacing: 0.2,
                                 ),
                               ),
                             ],
