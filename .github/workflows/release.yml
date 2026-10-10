@@ -55,7 +55,7 @@ jobs:
           KEYSTORE_PATH: upload-keystore.jks
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
-          flutter build apk --release
+          flutter build apk --release --android-skip-build-dependency-validation
           cp build/app/outputs/flutter-apk/app-release.apk OnePass-Android-${{ github.ref_name }}.apk
 
       - name: Build macOS App
