@@ -4,8 +4,13 @@ import '../../models/entry_type.dart';
 
 class EntryAvatarWidget extends StatelessWidget {
   final VaultEntry entry;
+  final double size;
 
-  const EntryAvatarWidget({super.key, required this.entry});
+  const EntryAvatarWidget({
+    super.key,
+    required this.entry,
+    this.size = 44.0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -18,8 +23,8 @@ class EntryAvatarWidget extends StatelessWidget {
         final faviconUrl = 'https://www.google.com/s2/favicons?domain=$host&sz=64';
         
         return Container(
-          width: 48,
-          height: 48,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             color: Colors.white,
             shape: BoxShape.circle,
@@ -44,9 +49,10 @@ class EntryAvatarWidget extends StatelessWidget {
   }
 
   Widget _buildFallback(Color entryColor) {
+    final iconSize = size * 0.5;
     return Container(
-      width: 48,
-      height: 48,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: entryColor.withValues(alpha: 0.15),
         shape: BoxShape.circle,
@@ -54,13 +60,21 @@ class EntryAvatarWidget extends StatelessWidget {
       ),
       child: Center(
         child: entry.type == EntryType.authenticator
-            ? Icon(Icons.access_time, color: entryColor)
+            ? Icon(Icons.access_time, color: entryColor, size: iconSize)
             : entry.type == EntryType.creditCard
-                ? Icon(Icons.credit_card, color: entryColor)
-                : Text(
-                    entry.title.isNotEmpty ? entry.title[0].toUpperCase() : '?',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: entryColor, fontSize: 18),
-                  ),
+                ? Icon(Icons.credit_card, color: entryColor, size: iconSize)
+                : entry.type == EntryType.secureNote
+                    ? Icon(Icons.description_outlined, color: entryColor, size: iconSize)
+                    : entry.type == EntryType.wifi
+                        ? Icon(Icons.wifi, color: entryColor, size: iconSize)
+                        : entry.type == EntryType.identity
+                            ? Icon(Icons.badge_outlined, color: entryColor, size: iconSize)
+                            : entry.type == EntryType.passkey
+                                ? Icon(Icons.key, color: entryColor, size: iconSize)
+                                : Text(
+                                    entry.title.isNotEmpty ? entry.title[0].toUpperCase() : '?',
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: entryColor, fontSize: iconSize * 0.8),
+                                  ),
       ),
     );
   }

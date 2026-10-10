@@ -46,4 +46,23 @@ enum EntryType {
         return Colors.deepPurple;
     }
   }
+
+  IconData get icon {
+    switch (this) {
+      case EntryType.login:
+        return Icons.lock_outline;
+      case EntryType.creditCard:
+        return Icons.credit_card;
+      case EntryType.authenticator:
+        return Icons.access_time;
+      case EntryType.secureNote:
+        return Icons.description_outlined;
+      case EntryType.wifi:
+        return Icons.wifi;
+      case EntryType.identity:
+        return Icons.badge_outlined;
+      case EntryType.passkey:
+        return Icons.key;
+    }
+  }
 }

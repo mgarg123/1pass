@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/vault_provider.dart';
 import 'widgets/entry_avatar_widget.dart';
-import '../models/vault_entry.dart';
 
 class TrashScreen extends ConsumerWidget {
   const TrashScreen({super.key});

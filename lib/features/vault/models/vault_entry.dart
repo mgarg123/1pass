@@ -24,33 +24,72 @@ class PasswordHistoryItem extends Equatable {
   List<Object?> get props => [password, changedAt];
 }
 
+class CustomFieldDetail extends Equatable {
+  final String label;
+  final String value;
+  final bool isObscured;
+
+  const CustomFieldDetail({
+    required this.label,
+    required this.value,
+    this.isObscured = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'label': label,
+        'value': value,
+        'isObscured': isObscured,
+      };
+
+  factory CustomFieldDetail.fromJson(Map<String, dynamic> json) {
+    return CustomFieldDetail(
+      label: json['label'] as String? ?? json['name'] as String? ?? '',
+      value: json['value'] as String? ?? '',
+      isObscured: json['isObscured'] as bool? ?? false,
+    );
+  }
+
+  @override
+  List<Object?> get props => [label, value, isObscured];
+}
+
 class CustomField extends Equatable {
   final String name;
   final String value;
   final bool isObscured;
+  final List<CustomFieldDetail> details;
 
   const CustomField({
     required this.name,
     required this.value,
     this.isObscured = false,
+    this.details = const [],
   });
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'value': value,
         'isObscured': isObscured,
+        if (details.isNotEmpty) 'details': details.map((d) => d.toJson()).toList(),
       };
 
   factory CustomField.fromJson(Map<String, dynamic> json) {
+    final detailsList = json['details'] != null
+        ? (json['details'] as List)
+            .map((e) => CustomFieldDetail.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList()
+        : <CustomFieldDetail>[];
+
     return CustomField(
       name: json['name'] as String,
       value: json['value'] as String,
       isObscured: json['isObscured'] as bool? ?? false,
+      details: detailsList,
     );
   }
 
   @override
-  List<Object?> get props => [name, value, isObscured];
+  List<Object?> get props => [name, value, isObscured, details];
 }
 
 class VaultEntry extends Equatable {
@@ -72,6 +111,34 @@ class VaultEntry extends Equatable {
   final String? passkeyUserHandle;
   final String? passkeyPublicKey;
   final String? passkeyPrivateKey;
+
+  // Wi-Fi specific fields
+  final String? wifiSsid;
+  final String? wifiPassword;
+  final String? wifiSecurityType;
+  final bool? wifiIsHidden;
+
+  // Identity specific fields
+  final String? identityTitle;
+  final String? identityFirstName;
+  final String? identityMiddleName;
+  final String? identityLastName;
+  final String? identityGender;
+  final String? identityBirthDate;
+  final String? identityEmail;
+  final String? identityPhone;
+  final String? identityAddress1;
+  final String? identityAddress2;
+  final String? identityCity;
+  final String? identityState;
+  final String? identityPostalCode;
+  final String? identityCountry;
+  final String? identityPassportNumber;
+  final String? identityNationalId;
+  final String? identityLicenseNumber;
+  final String? identityCompany;
+  final String? identityOccupation;
+
   final List<String> tags;
   final List<String> ignoredWarnings;
   final List<PasswordHistoryItem> passwordHistory;
@@ -100,6 +167,29 @@ class VaultEntry extends Equatable {
     this.passkeyUserHandle,
     this.passkeyPublicKey,
     this.passkeyPrivateKey,
+    this.wifiSsid,
+    this.wifiPassword,
+    this.wifiSecurityType,
+    this.wifiIsHidden,
+    this.identityTitle,
+    this.identityFirstName,
+    this.identityMiddleName,
+    this.identityLastName,
+    this.identityGender,
+    this.identityBirthDate,
+    this.identityEmail,
+    this.identityPhone,
+    this.identityAddress1,
+    this.identityAddress2,
+    this.identityCity,
+    this.identityState,
+    this.identityPostalCode,
+    this.identityCountry,
+    this.identityPassportNumber,
+    this.identityNationalId,
+    this.identityLicenseNumber,
+    this.identityCompany,
+    this.identityOccupation,
     required this.tags,
     this.ignoredWarnings = const [],
     this.passwordHistory = const [],
@@ -129,6 +219,29 @@ class VaultEntry extends Equatable {
     String? passkeyUserHandle,
     String? passkeyPublicKey,
     String? passkeyPrivateKey,
+    String? wifiSsid,
+    String? wifiPassword,
+    String? wifiSecurityType,
+    bool? wifiIsHidden,
+    String? identityTitle,
+    String? identityFirstName,
+    String? identityMiddleName,
+    String? identityLastName,
+    String? identityGender,
+    String? identityBirthDate,
+    String? identityEmail,
+    String? identityPhone,
+    String? identityAddress1,
+    String? identityAddress2,
+    String? identityCity,
+    String? identityState,
+    String? identityPostalCode,
+    String? identityCountry,
+    String? identityPassportNumber,
+    String? identityNationalId,
+    String? identityLicenseNumber,
+    String? identityCompany,
+    String? identityOccupation,
     List<String>? tags,
     List<String>? ignoredWarnings,
     List<PasswordHistoryItem>? passwordHistory,
@@ -157,6 +270,29 @@ class VaultEntry extends Equatable {
       passkeyUserHandle: passkeyUserHandle ?? this.passkeyUserHandle,
       passkeyPublicKey: passkeyPublicKey ?? this.passkeyPublicKey,
       passkeyPrivateKey: passkeyPrivateKey ?? this.passkeyPrivateKey,
+      wifiSsid: wifiSsid ?? this.wifiSsid,
+      wifiPassword: wifiPassword ?? this.wifiPassword,
+      wifiSecurityType: wifiSecurityType ?? this.wifiSecurityType,
+      wifiIsHidden: wifiIsHidden ?? this.wifiIsHidden,
+      identityTitle: identityTitle ?? this.identityTitle,
+      identityFirstName: identityFirstName ?? this.identityFirstName,
+      identityMiddleName: identityMiddleName ?? this.identityMiddleName,
+      identityLastName: identityLastName ?? this.identityLastName,
+      identityGender: identityGender ?? this.identityGender,
+      identityBirthDate: identityBirthDate ?? this.identityBirthDate,
+      identityEmail: identityEmail ?? this.identityEmail,
+      identityPhone: identityPhone ?? this.identityPhone,
+      identityAddress1: identityAddress1 ?? this.identityAddress1,
+      identityAddress2: identityAddress2 ?? this.identityAddress2,
+      identityCity: identityCity ?? this.identityCity,
+      identityState: identityState ?? this.identityState,
+      identityPostalCode: identityPostalCode ?? this.identityPostalCode,
+      identityCountry: identityCountry ?? this.identityCountry,
+      identityPassportNumber: identityPassportNumber ?? this.identityPassportNumber,
+      identityNationalId: identityNationalId ?? this.identityNationalId,
+      identityLicenseNumber: identityLicenseNumber ?? this.identityLicenseNumber,
+      identityCompany: identityCompany ?? this.identityCompany,
+      identityOccupation: identityOccupation ?? this.identityOccupation,
       tags: tags ?? this.tags,
       ignoredWarnings: ignoredWarnings ?? this.ignoredWarnings,
       passwordHistory: passwordHistory ?? this.passwordHistory,
@@ -188,6 +324,29 @@ class VaultEntry extends Equatable {
       'passkeyUserHandle': passkeyUserHandle,
       'passkeyPublicKey': passkeyPublicKey,
       'passkeyPrivateKey': passkeyPrivateKey,
+      'wifiSsid': wifiSsid,
+      'wifiPassword': wifiPassword,
+      'wifiSecurityType': wifiSecurityType,
+      'wifiIsHidden': wifiIsHidden,
+      'identityTitle': identityTitle,
+      'identityFirstName': identityFirstName,
+      'identityMiddleName': identityMiddleName,
+      'identityLastName': identityLastName,
+      'identityGender': identityGender,
+      'identityBirthDate': identityBirthDate,
+      'identityEmail': identityEmail,
+      'identityPhone': identityPhone,
+      'identityAddress1': identityAddress1,
+      'identityAddress2': identityAddress2,
+      'identityCity': identityCity,
+      'identityState': identityState,
+      'identityPostalCode': identityPostalCode,
+      'identityCountry': identityCountry,
+      'identityPassportNumber': identityPassportNumber,
+      'identityNationalId': identityNationalId,
+      'identityLicenseNumber': identityLicenseNumber,
+      'identityCompany': identityCompany,
+      'identityOccupation': identityOccupation,
       'tags': tags,
       'ignoredWarnings': ignoredWarnings,
       'passwordHistory': passwordHistory.map((e) => e.toJson()).toList(),
@@ -216,6 +375,29 @@ class VaultEntry extends Equatable {
         passkeyUserHandle,
         passkeyPublicKey,
         passkeyPrivateKey,
+        wifiSsid,
+        wifiPassword,
+        wifiSecurityType,
+        wifiIsHidden,
+        identityTitle,
+        identityFirstName,
+        identityMiddleName,
+        identityLastName,
+        identityGender,
+        identityBirthDate,
+        identityEmail,
+        identityPhone,
+        identityAddress1,
+        identityAddress2,
+        identityCity,
+        identityState,
+        identityPostalCode,
+        identityCountry,
+        identityPassportNumber,
+        identityNationalId,
+        identityLicenseNumber,
+        identityCompany,
+        identityOccupation,
         tags,
         ignoredWarnings,
         passwordHistory,
@@ -226,3 +408,4 @@ class VaultEntry extends Equatable {
         isFavorite,
       ];
 }
+

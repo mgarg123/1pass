@@ -1,47 +1,62 @@
 import 'dart:io';
 
 void main(List<String> args) {
-  if (args.isEmpty) {
-    print('Usage: dart scripts/release.dart <new_version>');
-    print('Example: dart scripts/release.dart 1.0.1+2');
-    exit(1);
-  }
-
-  final newVersion = args[0];
   final pubspecFile = File('pubspec.yaml');
 
   if (!pubspecFile.existsSync()) {
-    print('pubspec.yaml not found! Run this script from the project root.');
+    print('❌ pubspec.yaml not found! Run this script from the project root.');
     exit(1);
   }
 
   String content = pubspecFile.readAsStringSync();
-  final versionRegex = RegExp(r'^version:\s+.*$', multiLine: true);
+  final versionRegex = RegExp(r'^version:\s+([^\s#]+)', multiLine: true);
+  final match = versionRegex.firstMatch(content);
 
-  if (!versionRegex.hasMatch(content)) {
-    print('Could not find version line in pubspec.yaml');
+  if (match == null) {
+    print('❌ Could not find version line in pubspec.yaml');
     exit(1);
   }
 
-  content = content.replaceFirst(versionRegex, 'version: $newVersion');
-  pubspecFile.writeAsStringSync(content);
+  final bool forceRetry = args.contains('--retry') || args.contains('--force') || args.contains('-f');
+  final version = match.group(1)!.trim().replaceAll("'", '').replaceAll('"', '');
+  final versionTag = 'v$version';
 
-  print('Updated pubspec.yaml to version: $newVersion');
+  print('📦 Target version in pubspec.yaml: $version');
+  print('🏷️  Release tag: $versionTag');
 
-  final versionTag = 'v$newVersion';
+  // Check if tag already exists
+  final localTagCheck = Process.runSync('git', ['rev-parse', versionTag]);
+  if (localTagCheck.exitCode == 0) {
+    bool doRetry = forceRetry;
+    if (!doRetry) {
+      stdout.write('⚠️  Tag $versionTag already exists. Overwrite/re-publish to retry the build? [y/N]: ');
+      final input = stdin.readLineSync()?.trim().toLowerCase();
+      if (input == 'y' || input == 'yes') {
+        doRetry = true;
+      } else {
+        print('❌ Cancelled. Please bump version in pubspec.yaml before releasing.');
+        exit(1);
+      }
+    }
 
-  print('Committing and tagging as $versionTag...');
+    if (doRetry) {
+      print('🔄 Removing existing tag $versionTag locally and remotely...');
+      Process.runSync('git', ['tag', '-d', versionTag]);
+      Process.runSync('git', ['push', 'origin', '--delete', versionTag]);
+    }
+  }
 
-  _runCommand('git', ['add', 'pubspec.yaml']);
+  print('🚀 Staging and committing changes...');
+  _runCommand('git', ['add', '.']);
   _runCommand('git', ['commit', '--allow-empty', '-m', 'chore: release $versionTag']);
   _runCommand('git', ['tag', versionTag]);
 
-  print('Pushing to origin...');
+  print('⬆️  Pushing to origin...');
   _runCommand('git', ['push', 'origin', 'HEAD']);
   _runCommand('git', ['push', 'origin', versionTag]);
 
   print('=============================================');
-  print('Release $versionTag triggered successfully!');
+  print('✅ Release $versionTag triggered successfully!');
   print('GitHub Actions should now build and publish it.');
   print('=============================================');
 }

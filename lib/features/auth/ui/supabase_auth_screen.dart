@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/config/storage_mode.dart';
+import 'widgets/google_logo.dart';
 
 class SupabaseAuthScreen extends ConsumerStatefulWidget {
   const SupabaseAuthScreen({super.key});
@@ -139,24 +140,7 @@ class _SupabaseAuthScreenState extends ConsumerState<SupabaseAuthScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      width: 22,
-                      height: 22,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'G',
-                          style: TextStyle(
-                            color: Color(0xFF4285F4),
-                            fontWeight: FontWeight.w900,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
+                    const GoogleLogo(size: 20),
                     const SizedBox(width: 12),
                     const Text(
                       'Continue with Google',
