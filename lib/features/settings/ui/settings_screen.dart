@@ -156,7 +156,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               if (biometricState.isSupported) ...[
                 const _CustomDivider(),
                 SwitchListTile(
-                  activeColor: Colors.blueAccent,
+                  activeThumbColor: Colors.blueAccent,
                   secondary: Icon(Icons.fingerprint, color: Colors.grey[400]),
                   title: const Text('Biometric Unlock'),
                   value: biometricState.isEnabled,
@@ -250,7 +250,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const _CustomDivider(),
               SwitchListTile(
-                activeColor: Colors.blueAccent,
+                activeThumbColor: Colors.blueAccent,
                 secondary: Icon(Icons.security, color: Colors.grey[400]),
                 title: const Text('Check Password Breaches'),
                 subtitle: const Text('Anonymously check against HIBP database', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.white54)),
@@ -261,7 +261,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const _CustomDivider(),
               SwitchListTile(
-                activeColor: Colors.blueAccent,
+                activeThumbColor: Colors.blueAccent,
                 secondary: Icon(Icons.history_toggle_off, color: Colors.grey[400]),
                 title: const Text('Flag Old Passwords'),
                 subtitle: const Text('Warn about passwords older than 1 year', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.white54)),
@@ -390,7 +390,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     showAboutDialog(
                       context: context,
                       applicationName: packageInfo.appName.isEmpty ? '1Pass' : packageInfo.appName,
-                      applicationVersion: '${packageInfo.version} (${packageInfo.buildNumber})',
+                      applicationVersion: 'v${packageInfo.version.split('+')[0]}',
                       applicationIcon: const Icon(Icons.security, size: 48, color: Colors.blueAccent),
                       children: [
                         const SizedBox(height: 16),

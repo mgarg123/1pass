@@ -4,6 +4,14 @@ All notable changes to the **1Pass** project are documented in this file.
 
 ---
 
+## [1.2.1+19] - 2026-10-10
+
+- **Update Popup Revamp**: Modern dark glassmorphism dialog with "What's New" release notes.
+- **Smart Package Caching**: Detects already-downloaded installer packages and enables instant 1-tap installation without re-downloading.
+- **Accurate Download Progress**: Added real-time MB downloaded/total size metrics, percentage tracking, and cancel support.
+- **Clean Version Display**: Removed raw build number (`+18`) from user-facing screens and version comparisons.
+- **Build Fix**: Upgraded Kotlin Gradle Plugin to 2.2.20 for Android release build compatibility.
+
 ## [1.2.0+18] - 2026-10-10
 
 - **Vault Homescreen Revamp**:

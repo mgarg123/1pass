@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -31,21 +32,39 @@ class GitHubRelease {
   }
 
   String get versionString => tagName.startsWith('v') ? tagName.substring(1) : tagName;
+
+  /// Clean semantic version (e.g. "1.2.0" without build number "+18" or "v" prefix)
+  String get cleanVersion {
+    var v = tagName.trim();
+    if (v.startsWith('v') || v.startsWith('V')) {
+      v = v.substring(1);
+    }
+    if (v.contains('+')) {
+      v = v.split('+')[0];
+    }
+    return v;
+  }
+
+  /// Clean display tag with "v" (e.g. "v1.2.0")
+  String get displayTag => 'v$cleanVersion';
 }
 
 class GitHubAsset {
   final String name;
   final String browserDownloadUrl;
+  final int size;
 
   GitHubAsset({
     required this.name,
     required this.browserDownloadUrl,
+    this.size = 0,
   });
 
   factory GitHubAsset.fromJson(Map<String, dynamic> json) {
     return GitHubAsset(
       name: json['name'] ?? '',
       browserDownloadUrl: json['browser_download_url'] ?? '',
+      size: (json['size'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -72,7 +91,7 @@ class UpdateService {
         }
       }
     } catch (e) {
-      print('Failed to check for updates: $e');
+      debugPrint('Failed to check for updates: $e');
     }
     return null;
   }
@@ -101,18 +120,23 @@ class UpdateService {
     return releaseBuild > currentBuild;
   }
 
-  String? getDownloadUrlForPlatform(GitHubRelease release) {
+  GitHubAsset? getAssetForPlatform(GitHubRelease release) {
     String assetPrefix = '';
     if (Platform.isAndroid) assetPrefix = 'OnePass-Android-';
     if (Platform.isMacOS) assetPrefix = 'OnePass-macOS-';
     if (Platform.isWindows) assetPrefix = 'OnePass-Windows-';
-    // iOS will just use the release page URL
+
+    if (assetPrefix.isEmpty) return null;
 
     for (var asset in release.assets) {
       if (asset.name.startsWith(assetPrefix)) {
-        return asset.browserDownloadUrl;
+        return asset;
       }
     }
     return null;
+  }
+
+  String? getDownloadUrlForPlatform(GitHubRelease release) {
+    return getAssetForPlatform(release)?.browserDownloadUrl;
   }
 }
